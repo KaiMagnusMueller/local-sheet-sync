@@ -15,7 +15,7 @@
 		"@rollup/plugin-terser": "^0.4.4",
 		"@rollup/plugin-typescript": "^11.1.6",
 		"caniuse-lite": "^1.0.30001355",
-		"cssnano": "^6.0.1",
+		"cssnano": "^7.0.5",
 		"figma-plugin-ds-svelte": "github:KaiMagnusMueller/figma-plugin-ds-svelte-improved",
 		"mdsvex": "^0.11.0",
 		"postcss": "^8.4.31",
