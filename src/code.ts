@@ -2,7 +2,6 @@ import { postMessageToast } from './lib/figma-backend-utils';
 import { getLabels, mergeLabels } from './lib/handle-labels';
 
 console.clear();
-// This shows the HTML page in "ui.html".
 figma.showUI(__html__, { width: 680, height: 420, themeColors: true });
 
 // Possibly offer this as option
@@ -10,31 +9,14 @@ figma.skipInvisibleInstanceChildren = true;
 let documentNode = figma.root;
 
 let sheet = documentNode.getPluginData('sheet');
+// TODO: Add settings
 let settings = documentNode.getPluginData('settings');
 
-figma.ui.onmessage = (msg) => {
-    switch (msg.type) {
-        case 'save-sheet':
-            const sheetData = msg.data;
-            console.log("Saving sheet data");
-            documentNode.setPluginData('sheet', sheetData);
-            break;
-        case "assign-layer-name":
-            const currentSelection = figma.currentPage.selection;
-            const newLabels: Labels = msg.data
-
-            // Example name: Label {sheet: 'Kundenliste', column: 'Name', row: 'n'}
-
-            applyLabelsToSelection(currentSelection, newLabels);
-            break;
-        default:
-            break;
-    }
-};
-
+// ---------------------------------
+// ON STARTUP
+// ---------------------------------
 if (sheet) {
     console.log("Loading sheet data");
-
     figma.ui.postMessage({
         type: 'restore-sheet',
         data: sheet,
@@ -42,8 +24,34 @@ if (sheet) {
 }
 
 
+// ---------------------------------
+// ON PLUGIN MESSAGE
+// ---------------------------------
+figma.ui.onmessage = (msg) => {
+    switch (msg.type) {
+        case 'save-sheet':
+            const sheetData = msg.data;
+            documentNode.setPluginData('sheet', sheetData);
+
+            break;
+        case "assign-layer-name":
+            const newLabels: Labels = msg.data
+            applyLabelsToSelection(figma.currentPage.selection, newLabels);
+
+            break;
+        case "apply-data":
+            applyDataToSelection(figma.currentPage.selection, sheet);
+
+            break
+        default:
+            break;
+    }
+};
 
 
+// ---------------------------------
+// HANDLE MESSAGES
+// ---------------------------------
 function applyLabelsToSelection(currentSelection: readonly SceneNode[], newLabels: Labels) {
     currentSelection.forEach(node => {
         const { existingLabels, nodeName } = getLabels(node.name);
@@ -58,6 +66,120 @@ function applyLabelsToSelection(currentSelection: readonly SceneNode[], newLabel
     });
 }
 
+async function applyDataToSelection(currentSelection: (BaseNode & ChildrenMixin)[], data: any) {
+
+    let nodesToSearch: BaseNode[] = [];
+    let nodesToApplyData: BaseNode[] = [];
+
+
+    // Search current page if no selection
+    if (!currentSelection) {
+        console.log("No selection");
+
+        figma.currentPage.children.forEach(node => {
+
+            if (node.findAll !== undefined) {
+                nodesToSearch.push(node);
+            } else if (node.name.match(/({.*})/)) {
+                nodesToApplyData.push(node);
+            }
+        })
+    }
+
+    // Search selected nodes
+    if (currentSelection) {
+        console.log("Selection");
+
+        currentSelection.forEach(node => {
+
+            if (node.findAll !== undefined) {
+                nodesToSearch.push(node);
+            } else if (node.name.match(/({.*})/)) {
+                nodesToApplyData.push(node);
+            }
+        })
+    };
+
+    nodesToSearch.forEach(node => {
+        nodesToApplyData = node.findAll(node => {
+            const match = node.name.match(/({.*})/);
+
+            if (match) {
+                const jsonString = match[0];
+                const jsonObject = JSON.parse(jsonString);
+                // existingLabels.sheet = jsonObject.sheet;
+                let column = jsonObject.column;
+                // existingLabels.row = jsonObject.row;
+
+                if (column) {
+                    return true;
+                }
+            }
+            return false;
+        });
+
+    })
+
+    console.log(currentSelection);
+    console.log(nodesToSearch);
+    console.log(nodesToApplyData);
+
+
+    let fontsToLoad = []
+    nodesToApplyData.forEach((node, i) => {
+        if (node.type !== "TEXT") {
+            return;
+        }
+
+        const fontsInUse = [...node.getRangeAllFontNames(0, node.characters.length)];
+        fontsInUse.forEach(fontName => {
+            fontsToLoad.some(font => font.family === fontName.family) || fontsToLoad.push(fontName);
+        })
+
+    })
+
+    console.log(fontsToLoad);
+
+    await loadFonts(fontsToLoad);
+
+    nodesToApplyData.forEach((node, i) => {
+
+        let _data = ["Text 1", "Text 2", "Text 3", "Text 4", "Text 5", "Text 6", "Text 7", "Text 8", "Text 9", "Text 10"];
+
+        if (node.type === "TEXT") {
+            node.characters = _data[i];
+
+        }
+    })
+
+
+
+    // Add selected nodes with labels, because they are not included in the findAll above
+    const selectedNodesWithLabels = currentSelection.filter(node => {
+        const match = node.name.match(/({.*})/);
+        return match ? true : false;
+    });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ---------------------------------
+// SELECTION CHANGE EVENT
+// ---------------------------------
 figma.on('selectionchange', handleSelectionChange);
 
 function handleSelectionChange() {
@@ -80,3 +202,33 @@ function handleSelectionChange() {
 
 
 
+
+function clone(val) {
+    const type = typeof val
+    if (val === null) {
+        return null
+    } else if (type === 'undefined' || type === 'number' ||
+        type === 'string' || type === 'boolean') {
+        return val
+    } else if (type === 'object') {
+        if (val instanceof Array) {
+            return val.map(x => clone(x))
+        } else if (val instanceof Uint8Array) {
+            return new Uint8Array(val)
+        } else {
+            let o = {}
+            for (const key in val) {
+                o[key] = clone(val[key])
+            }
+            return o
+        }
+    }
+    throw 'unknown'
+}
+
+
+async function loadFonts(fonts) {
+    await Promise.all(
+        fonts.map(figma.loadFontAsync)
+    )
+}

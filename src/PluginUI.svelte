@@ -160,35 +160,40 @@
 
 	<main>
 		{#if activeSheet}
-			<button data-sheet={activeSheet.name} on:click|self={(e) => handleAssignLabel(e)}
-				>{activeSheet.name}</button>
+			<header>
+				<button data-sheet={activeSheet.name} on:click|self={(e) => handleAssignLabel(e)}
+					>{activeSheet.name}</button>
+			</header>
 
-			<table>
-				{#if activeSheet.header}
-					<thead>
-						<tr>
-							{#each activeSheet.header as colHeaderCell}
-								<th
-									><button
-										data-column={colHeaderCell}
-										on:click|self={(e) => handleAssignLabel(e)}
-										><span class="line-clamp-3">{colHeaderCell}</span></button
-									></th>
-							{/each}
-						</tr>
-					</thead>
-				{/if}
-
-				<tbody>
-					{#each activeSheet.data as row, index}
-						<tr>
-							{#each row as cell, index}
-								<td><span class="line-clamp-2">{cell}</span></td>
-							{/each}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+			<div class="table-wrapper">
+				<table>
+					{#if activeSheet.header}
+						<thead>
+							<tr>
+								{#each activeSheet.header as colHeaderCell}
+									<th
+										><button
+											title={colHeaderCell}
+											data-column={colHeaderCell}
+											on:click|self={(e) => handleAssignLabel(e)}
+											><span class="line-clamp-3">{colHeaderCell}</span
+											></button
+										></th>
+								{/each}
+							</tr>
+						</thead>
+					{/if}
+					<tbody>
+						{#each activeSheet.data as row, index}
+							<tr>
+								{#each row as cell, index}
+									<td title={cell}><span class="line-clamp-2">{cell}</span></td>
+								{/each}
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		{/if}
 	</main>
 
@@ -217,24 +222,26 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	header,
-	main {
-		gap: 1rem;
-		padding-inline: 0.5rem;
+		height: 100%;
 	}
 
 	header {
 		padding-block-start: 0.5rem;
 		display: flex;
+		padding-inline: 0.5rem;
 		justify-content: space-between;
 	}
 
 	main {
 		display: flex;
 		flex-direction: column;
+		overflow: scroll;
+		flex-grow: 1;
+		gap: 0.5rem;
+	}
+
+	.table-wrapper {
+		padding-inline: 0.5rem;
 		overflow: scroll;
 	}
 
@@ -264,6 +271,7 @@
 		background-color: var(--figma-color-bg-secondary);
 		padding: 0.5rem;
 		padding-block-end: 0.8rem;
+		flex-shrink: 0;
 	}
 
 	ul {
