@@ -1,0 +1,17 @@
+{
+    "name": "Local Sheet Sync",
+    "id": "1408026413233309229",
+    "api": "1.0.0",
+    "main": "code.js",
+    "capabilities": [],
+    "enableProposedApi": false,
+    "documentAccess": "dynamic-page",
+    "editorType": [
+      "figma"
+    ],
+    "ui": "index.html",
+	"networkAccess": {
+		"allowedDomains": ["https://*.cloudinary.com"],
+		"reasoning": "Tree Navigator loads tutorial images from Cloudinary"
+	}
+  }
