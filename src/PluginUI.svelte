@@ -16,6 +16,8 @@
 				const data = decompressFromUTF16(event.data.pluginMessage.data);
 				workbook = JSON.parse(data);
 
+				console.log(workbook);
+
 				// Get sheet names and the first sheet
 				sheetNames = workbook.SheetNames;
 
@@ -81,44 +83,8 @@
 		}
 
 		const sheet = workbook.Sheets[sheetNames[index]];
-		let _activeSheet = XLSX.utils.sheet_to_json(sheet, {
-			header: 1,
-			defval: '',
-			blankrows: false,
-			skipHidden: true,
-		});
 
-		//Search for empty columns in header row
-		let indexOfEmptyCell = -1;
-		for (let i = 1; i < _activeSheet[0].length; i++) {
-			let cell = _activeSheet[0][i];
-			if (cell === '') {
-				indexOfEmptyCell = i;
-				break;
-			}
-		}
-
-		// TODO: Move this to a separate function in the future
-		if (indexOfEmptyCell !== -1) {
-			console.log(
-				'Empty column with index',
-				indexOfEmptyCell,
-				'detected. Removing',
-				_activeSheet[0].length - indexOfEmptyCell,
-				'columns.',
-			);
-
-			//Remove empty columns
-			for (let i = 0; i < _activeSheet.length; i++) {
-				_activeSheet[i].splice(indexOfEmptyCell, _activeSheet[i].length - indexOfEmptyCell);
-			}
-		}
-
-		return (activeSheet = {
-			name: sheetNames[index],
-			header: _activeSheet[0],
-			data: _activeSheet.slice(1),
-		});
+		return (activeSheet = formatAndCleanSheet(sheet, index));
 	}
 
 	function handleAssignLabel(e) {
@@ -138,15 +104,64 @@
 	}
 
 	function handleApplyData(e) {
+		const sheetNames = Object.keys(workbook.Sheets);
+
+		const allSheets = sheetNames.map((sheetName, i) => {
+			const sheet = workbook.Sheets[sheetName];
+
+			return (activeSheet = formatAndCleanSheet(sheet, i));
+		});
+
 		parent.postMessage(
 			{
 				pluginMessage: {
 					type: 'apply-data',
-					data: activeSheet,
+					data: allSheets,
 				},
 			},
 			'*',
 		);
+	}
+
+	function formatAndCleanSheet(sheet, index) {
+		let _sheet = XLSX.utils.sheet_to_json(sheet, {
+			header: 1,
+			defval: '',
+			blankrows: false,
+			skipHidden: true,
+		});
+
+		//Search for empty columns in header row
+		let indexOfEmptyCell = -1;
+		for (let i = 1; i < _sheet[0].length; i++) {
+			let cell = _sheet[0][i];
+			if (cell === '') {
+				indexOfEmptyCell = i;
+				break;
+			}
+		}
+
+		// TODO: Move this to a separate function in the future
+		if (indexOfEmptyCell !== -1) {
+			// console.log(
+			// 	'Empty column with index',
+			// 	indexOfEmptyCell,
+			// 	'detected. Removing',
+			// 	_sheet[0].length - indexOfEmptyCell,
+			// 	'columns.',
+			// );
+
+			//Remove empty columns
+			for (let i = 0; i < _sheet.length; i++) {
+				_sheet[i].splice(indexOfEmptyCell, _sheet[i].length - indexOfEmptyCell);
+			}
+		}
+
+		return (activeSheet = {
+			name: sheetNames[index],
+			header: _sheet[0],
+			data: _sheet.slice(1),
+		});
 	}
 </script>
 

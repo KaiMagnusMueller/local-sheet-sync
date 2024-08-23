@@ -4,10 +4,6 @@ export function getLabels(input: string): { existingLabels: Labels, nodeName: st
     const existingLabels: Labels = {};
     let nodeName = '';
 
-
-    console.log(input.match(/({.*})/));
-
-
     // Extracting the JSON object from the string
     const match = input.match(/({.*})/);
     if (match) {
@@ -17,9 +13,6 @@ export function getLabels(input: string): { existingLabels: Labels, nodeName: st
         existingLabels.column = jsonObject.column;
         existingLabels.row = jsonObject.row;
     }
-
-    console.log(match);
-
 
     // Extracting the remaining string
     const remainingString = input.replace(/({.*})/, '').trim();
@@ -49,7 +42,7 @@ export function mergeLabels(existingLabels: Labels, newLabels: Labels): Labels |
 }
 
 export function assignLabel(existing: string, _new: string): string | undefined {
-    // If the existing and new label are equal, return undefined to toggle the label
+    // If the existing and new label are equal, return undefined to toggle the label off
     if (existing === _new) {
         return undefined;
     }
