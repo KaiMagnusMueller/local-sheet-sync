@@ -1,4 +1,4 @@
-import { postMessageToast } from './/figma-backend-utils';
+import { postMessageToast } from './figma-backend-utils';
 
 export function getLabels(input: string): { existingLabels: Labels, nodeName: string } {
     const existingLabels: Labels = {};
@@ -22,12 +22,17 @@ export function getLabels(input: string): { existingLabels: Labels, nodeName: st
 }
 
 
-export function mergeLabels(existingLabels: Labels, newLabels: Labels): Labels | {} {
+export function mergeLabels(existingLabels: Labels, newLabels: Labels, toggleLabels?: boolean): Labels | undefined {
+    // if (!existingLabels && !newLabels) {
+    //     // postMessageToast('All labels are empty');
+    //     return undefined;
+    // }
+
     // Merge the labels
     const mergedLabels: Labels = {
-        sheet: assignLabel(existingLabels.sheet, newLabels.sheet),
-        column: assignLabel(existingLabels.column, newLabels.column),
-        row: assignLabel(existingLabels.row, newLabels.row),
+        sheet: assignLabel(existingLabels?.sheet, newLabels?.sheet, toggleLabels),
+        column: assignLabel(existingLabels?.column, newLabels?.column, toggleLabels),
+        row: assignLabel(existingLabels?.row, newLabels?.row, toggleLabels),
     };
 
     // Check if all keys are empty
@@ -35,15 +40,15 @@ export function mergeLabels(existingLabels: Labels, newLabels: Labels): Labels |
 
     if (areAllKeysEmpty) {
         // postMessageToast('All labels are empty');
-        return {};
+        return undefined;
     }
 
     return mergedLabels;
 }
 
-export function assignLabel(existing: string, _new: string): string | undefined {
+export function assignLabel(existing: string, _new: string, toggleLabel = true): string | undefined {
     // If the existing and new label are equal, return undefined to toggle the label off
-    if (existing === _new) {
+    if ((existing === _new) && toggleLabel) {
         return undefined;
     }
 

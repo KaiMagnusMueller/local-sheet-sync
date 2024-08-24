@@ -1,5 +1,6 @@
 import { postMessageToast } from './lib/figma-backend-utils';
 import { getLabels, mergeLabels } from './lib/handle-labels';
+import { uniqObjInArr, getAncestorNodeArray, createDataTree, cleanTree } from './lib/node-tree-helpers';
 
 console.clear();
 figma.showUI(__html__, { width: 680, height: 420, themeColors: true });
@@ -23,6 +24,8 @@ if (sheet) {
     });
 }
 
+let dataToApply = []
+
 
 // ---------------------------------
 // ON PLUGIN MESSAGE
@@ -40,8 +43,10 @@ figma.ui.onmessage = (msg) => {
 
             break;
         case "apply-data":
-            const allSheets = msg.data;
-            applyDataToSelection(figma.currentPage.selection, allSheets);
+            dataToApply = msg.data;
+            // console.log(dataToApply);
+
+            applyDataToSelection(figma.currentPage.selection);
 
             break
         default:
@@ -58,7 +63,7 @@ function applyLabelsToSelection(currentSelection: readonly SceneNode[], newLabel
         const { existingLabels, nodeName } = getLabels(node.name);
         const mergedLabels = mergeLabels(existingLabels, newLabels);
 
-        if (Object.keys(mergedLabels).length === 0) {
+        if (!mergedLabels) {
             node.name = nodeName;
         } else {
             const newName = nodeName + " " + JSON.stringify(mergedLabels);
@@ -67,7 +72,8 @@ function applyLabelsToSelection(currentSelection: readonly SceneNode[], newLabel
     });
 }
 
-async function applyDataToSelection(currentSelection: (BaseNode & ChildrenMixin)[], data: any) {
+
+async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
     let nodesToSearch: BaseNode[] = [];
     let nodesToApplyData: BaseNode[] = [];
 
@@ -77,7 +83,7 @@ async function applyDataToSelection(currentSelection: (BaseNode & ChildrenMixin)
         console.log("No selection");
 
         figma.currentPage.children.forEach(node => {
-
+            //@ts-ignore
             if (node.findAll !== undefined) {
                 nodesToSearch.push(node);
             } else if (node.name.match(/({.*})/)) {
@@ -92,6 +98,7 @@ async function applyDataToSelection(currentSelection: (BaseNode & ChildrenMixin)
 
         currentSelection.forEach(node => {
 
+            //@ts-ignore
             if (node.findAll !== undefined) {
                 nodesToSearch.push(node);
             } else if (node.name.match(/({.*})/)) {
@@ -101,6 +108,7 @@ async function applyDataToSelection(currentSelection: (BaseNode & ChildrenMixin)
     };
 
     nodesToSearch.forEach(node => {
+        //@ts-ignore
         nodesToApplyData = node.findAll(node => {
             const match = node.name.match(/({.*})/);
 
@@ -120,155 +128,65 @@ async function applyDataToSelection(currentSelection: (BaseNode & ChildrenMixin)
 
     })
 
-    console.log(currentSelection);
-    console.log(nodesToSearch);
-    console.log(nodesToApplyData);
-
     await loadFonts(nodesToApplyData);
 
-
-    let ancestorNodeArray = getAncestorNodeArray(nodesToApplyData);
-
-    ancestorNodeArray = uniqObjInArr(ancestorNodeArray, 'id');
-
+    const ancestorNodeArray = uniqObjInArr(getAncestorNodeArray(nodesToApplyData), 'id');
     let ancestorTree = createDataTree(ancestorNodeArray);
-
-    console.log(ancestorTree);
-
     ancestorTree.forEach(node => { cleanTree(node) })
-
-
-    function cleanTree(node) {
-        if (!node.childNodes || node.childNodes.length === 0) {
-            return node;
-        }
-
-        while (node.childNodes.length === 1) {
-            node = node.childNodes[0];
-        }
-
-        node.childNodes = node.childNodes.map(child => cleanTree(child)).filter(child => child !== null);
-
-        return node;
-    }
-
-    console.log(ancestorTree);
 
     traverseTree(ancestorTree)
 
-
-
-    function traverseTree(ancestorTree) {
-
-        for (let i = 0; i < ancestorTree.length; i++) {
-            const node = ancestorTree[i]
-            const childNodes = node.childNodes;
-
-            const nodesToApplyData = childNodes.filter((n) => { return n.type === "TEXT" })
-
-
-            nodesToApplyData.forEach((element, i) => {
-                applyData(element, i)
-            });
-
-            traverseTree(childNodes)
-
-        }
-
-    }
-
-
-    function applyData(node: BaseNode, i: number) {
-        console.log("Apply data to", node.name, "with index", i);
-    }
-
-
-
     console.log("Finished applying data");
+    figma.ui.postMessage({
+        type: 'done-apply-data',
+    });
 }
 
-function getAncestorNodeArray(selection) {
-    let ancestorNodeArray = [];
-    selection.forEach((elem) => {
-        ancestorNodeArray = ancestorNodeArray.concat(getLineageNodeArray(elem));
-    });
-    ancestorNodeArray.forEach((elem) => {
-        if (elem.type === 'PAGE') {
-            delete elem.parent;
-        }
-    });
-    return ancestorNodeArray;
-}
 
-/**
- * Retrieves an array of lineage nodes for a given current node.
- * 
- * @param currentNode - The current node for which to retrieve the lineage.
- * @returns An array of nodes up to the ultimate ancestor.
- */
-function getLineageNodeArray(currentNode: BaseNode): any[] {
-    let lineage = [copyNode(currentNode)];
-    while (currentNode.type !== 'PAGE') {
-        currentNode = currentNode.parent;
-        lineage.push(copyNode(currentNode));
+
+function traverseTree(nodes, labelsFromParent: Labels = {}) {
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i]
+        const childNodes = node.childNodes;
+
+        const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
+
+        const nodesToApplyData = childNodes.filter((n) => { return n.type === "TEXT" })
+
+
+        nodesToApplyData.forEach((n, i) => {
+            applyData(n, i, currentLabels)
+        });
+
+        traverseTree(childNodes, currentLabels)
     }
-    return lineage;
 }
 
-/**
- * Returns an array with duplicate objects removed according to a given property.
- *
- * @param array - The array where duplicates should be removed from
- * @param prop - The object property that should be checked
- */
-function uniqObjInArr(array: Object[], prop: string): any[] {
-    let distinct = [];
-    let uniq = [];
-    for (let i = 0; i < array.length; i++) {
-        if (!distinct.includes(array[i][prop])) {
-            distinct.push(array[i][prop]);
-            uniq.push(array[i]);
-        }
+
+function applyData(node, i: number, labels: Labels) {
+    const currentLabels = mergeLabels(node.labels, labels, false)
+
+    if (!currentLabels.column) {
+        return console.log("Node has no column definiton.")
     }
-    return uniq;
+    if (!currentLabels.sheet) {
+        console.log("Node has no sheet definition, using default sheet 0");
+    }
+
+    const sheetIndex = Math.max(dataToApply.findIndex(e => { return e.name === currentLabels.sheet }), 0);
+    const columnIndex = dataToApply[sheetIndex].header.findIndex(e => { return e === currentLabels.column })
+
+    if (sheetIndex < 0) {
+        return console.log("Sheet does not exist in imported data. Sheet name:", currentLabels.sheet);
+    }
+    if (columnIndex < 0) {
+        return console.log("Column does not exist in sheet. Sheet name:", currentLabels.sheet, "Column name:", currentLabels.column);
+    }
+
+    const cellData = dataToApply[sheetIndex].data[i][columnIndex]
+
+    node.node.characters = cellData.toString();
 }
-
-// Extracted createDataTree function
-function createDataTree(dataset) {
-    const hashTable = Object.create(null);
-    dataset.forEach((aData) => (hashTable[aData.id] = { ...aData, childNodes: [] }));
-    const dataTree = [];
-
-    dataset.forEach((aData) => {
-        if (aData.parent?.id) {
-            hashTable[aData.parent.id].childNodes.push(hashTable[aData.id]);
-        } else {
-            dataTree.push(hashTable[aData.id]);
-        }
-    });
-    return dataTree;
-}
-
-
-
-function copyNode(node: BaseNode) {
-    return {
-        id: node.id,
-        name: node.name,
-        parent: node.parent,
-        // children: node.children,
-        type: node.type,
-    };
-}
-
-
-
-
-
-
-
-
-
 
 
 

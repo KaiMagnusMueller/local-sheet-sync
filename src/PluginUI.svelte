@@ -29,8 +29,11 @@
 				// Select the first sheet by default
 				selectSheet(0);
 			} else {
-				console.log('no tutorials viewed...');
+				console.log('no data to restore found');
 			}
+		}
+		if (event.data.pluginMessage.type == 'done-apply-data') {
+			console.timeEnd('apply-data-duration');
 		}
 	});
 
@@ -121,6 +124,7 @@
 			},
 			'*',
 		);
+		console.time('apply-data-duration');
 	}
 
 	function formatAndCleanSheet(sheet, index) {
