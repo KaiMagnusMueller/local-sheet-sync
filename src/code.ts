@@ -134,7 +134,8 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
     let ancestorTree = createDataTree(ancestorNodeArray);
     ancestorTree.forEach(node => { cleanTree(node) })
 
-    traverseTree(ancestorTree)
+    traverseTree(ancestorTree);
+
 
     console.log("Finished applying data");
     figma.ui.postMessage({
@@ -142,25 +143,55 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
     });
 }
 
-
-
+let index = 0
 function traverseTree(nodes, labelsFromParent: Labels = {}) {
+    console.log("-----------");
+
+    // console.log(nodes);
+
     for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i]
+
+        if (!node.node.findAllWithCriteria) {
+            continue
+        }
+
+        console.log(node.name);
+
         const childNodes = node.childNodes;
 
         const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
 
         const nodesToApplyData = childNodes.filter((n) => { return n.type === "TEXT" })
 
+        const columnValues = nodesToApplyData.map(n => n.labels.column);
+        const uniqueColumnValues = [...new Set(columnValues)];
 
-        nodesToApplyData.forEach((n, i) => {
-            applyData(n, i, currentLabels)
+        const sortedArrayByColumns = uniqueColumnValues.map(columnValue => {
+            return nodesToApplyData.filter(n => n.labels.column === columnValue);
         });
+
+        sortedArrayByColumns.forEach(col => {
+
+            col.forEach((n, j) => {
+                // index = 0 ? index = j : index = index;
+                // console.log(index);
+
+                applyData(n, j, currentLabels)
+            });
+        });
+
+        // if (sortedArrayByColumns.some(c => c.length === 1)) {
+        //     index++
+        // } else {
+        //     index = 0
+        // }
 
         traverseTree(childNodes, currentLabels)
     }
 }
+
+
 
 
 function applyData(node, i: number, labels: Labels) {
@@ -169,6 +200,7 @@ function applyData(node, i: number, labels: Labels) {
     if (!currentLabels.column) {
         return console.log("Node has no column definiton.")
     }
+
     if (!currentLabels.sheet) {
         console.log("Node has no sheet definition, using default sheet 0");
     }
@@ -181,9 +213,14 @@ function applyData(node, i: number, labels: Labels) {
     }
     if (columnIndex < 0) {
         return console.log("Column does not exist in sheet. Sheet name:", currentLabels.sheet, "Column name:", currentLabels.column);
+
     }
 
-    const cellData = dataToApply[sheetIndex].data[i][columnIndex]
+    const sheetDataToApply = dataToApply[sheetIndex].data //2D Array of sheet
+
+    const cellData = sheetDataToApply[i % sheetDataToApply.length][columnIndex]
+
+    console.log(cellData);
 
     node.node.characters = cellData.toString();
 }
