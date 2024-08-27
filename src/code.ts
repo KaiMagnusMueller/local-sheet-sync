@@ -131,11 +131,24 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
     await loadFonts(nodesToApplyData);
 
     const ancestorNodeArray = uniqObjInArr(getAncestorNodeArray(nodesToApplyData), 'id');
+
+
     let ancestorTree = createDataTree(ancestorNodeArray);
+
     ancestorTree.forEach(node => { cleanTree(node) })
 
-    traverseTree(ancestorTree);
+    ancestorTree.forEach(node => { aggregateDataPoints(node) })
 
+
+
+    console.log(ancestorTree);
+    // traverseTree(ancestorTree);
+    ancestorTree.forEach((node, i) => { printLeafNodesWithSameDataPoints(node, {}, i) })
+
+
+
+
+    console.log(updatedNodes);
 
     console.log("Finished applying data");
     figma.ui.postMessage({
@@ -143,52 +156,260 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
     });
 }
 
-let index = 0
-function traverseTree(nodes, labelsFromParent: Labels = {}) {
-    console.log("-----------");
+let updatedNodes = 0
 
-    // console.log(nodes);
 
-    for (let i = 0; i < nodes.length; i++) {
-        const node = nodes[i]
+function printLeafNodesWithSameDataPoints(node, labelsFromParent: Labels = {}, parentIndex) {
+    console.log("   ");
+    console.log("   ");
+    console.log("Start print leaf------");
 
-        if (!node.node.findAllWithCriteria) {
-            continue
-        }
+    console.log(node);
 
-        console.log(node.name);
 
-        const childNodes = node.childNodes;
+    const children = node.childNodes;
 
-        const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
+    // console.log(node);
+    const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
 
-        const nodesToApplyData = childNodes.filter((n) => { return n.type === "TEXT" })
+    const allChildsHaveEqualDataPoints = children.every(child => child.numberOfDataPoints === children[0].numberOfDataPoints);
 
-        const columnValues = nodesToApplyData.map(n => n.labels.column);
-        const uniqueColumnValues = [...new Set(columnValues)];
 
-        const sortedArrayByColumns = uniqueColumnValues.map(columnValue => {
-            return nodesToApplyData.filter(n => n.labels.column === columnValue);
-        });
 
-        sortedArrayByColumns.forEach(col => {
+    let index
 
-            col.forEach((n, j) => {
-                // index = 0 ? index = j : index = index;
-                // console.log(index);
+    // if (!allChildsHaveEqualDataPoints) {
+    //     return
+    // }
 
-                applyData(n, j, currentLabels)
-            });
-        });
+    const childrenWithColDef = children.filter(child => child.labels && child.labels.column);
+    console.log("childrenWithColDef", childrenWithColDef.length > 0 ? true : false);
 
-        // if (sortedArrayByColumns.some(c => c.length === 1)) {
-        //     index++
-        // } else {
-        //     index = 0
+    const columnValues = childrenWithColDef.map(n => n.labels.column);
+    const uniqueColumnValues = [...new Set(columnValues)];
+
+    const hasListOfValues = uniqueColumnValues.some(arr => arr.length > 1)
+
+
+    // console.log(childrenWithColDef);
+
+    const nodeHasColDef = node.labels && node.labels.column ? true : false
+
+    if (nodeHasColDef) {
+        // index = 0
+        // let localIndex = 0
+
+
+        // if (parentIndex > 1) {
+        //     localIndex = parentIndex
         // }
 
-        traverseTree(childNodes, currentLabels)
+        applyData(node, parentIndex, currentLabels)
+
     }
+
+    // if (childrenWithColDef.length > 0) {
+
+
+    //     const columnValues = childrenWithColDef.map(n => n.labels.column);
+    //     const uniqueColumnValues = [...new Set(columnValues)];
+
+    //     const sortedArrayByColumns = uniqueColumnValues.map(columnValue => {
+    //         return childrenWithColDef.filter(n => n.labels.column === columnValue);
+    //     });
+
+    //     // console.log(sortedArrayByColumns);
+
+
+    //     sortedArrayByColumns.forEach(col => {
+    //         col.forEach((n, j) => {
+    //             let localIndex = parentIndex
+
+
+    //             if (col.length > 1) {
+    //                 localIndex = currentIndex
+    //             } else {
+    //                 _parentIndex++
+
+    //             }
+
+
+    //             // console.log(col.length, localIndex, index, _parentIndex);
+    //             // console.log(col.length, localIndex, index, col, n);
+
+    //             applyData(n, localIndex, currentLabels)
+    //         });
+    //     });
+
+    //     // childrenWithColDef.forEach((child, i) => {
+    //     //     applyData(child, index, currentLabels)
+
+    //     // })
+
+
+    // }
+
+    console.log("ParentIndex:", parentIndex);
+
+    const sortedArrayByColumns = uniqueColumnValues.map(columnValue => {
+        return childrenWithColDef.filter(n => n.labels.column === columnValue);
+    });
+
+
+
+    // sortedArrayByColumns.forEach(col => {
+    //     col.forEach((child, i) => {
+
+    //         if (child.childNodes.length) {
+
+    //         }
+
+    //         let indexForChild = i
+
+    //         if ((childrenWithColDef.length > 0) && hasListOfValues) {
+    //             indexForChild = parentIndex
+    //         }
+
+    //         console.log(indexForChild);
+    //         console.log((childrenWithColDef.length > 0), hasListOfValues);
+
+    //         printLeafNodesWithSameDataPoints(child, currentLabels, indexForChild)
+
+    //     });
+    // });
+
+
+    children.forEach((child, i) => {
+        if (child.childNodes.length) {
+
+        }
+
+        let indexForChild
+
+        if (!hasListOfValues) {
+            indexForChild = i
+
+            console.log("not haslistofvalues");
+
+        } else {
+            console.log("yes haslistofvalues");
+            indexForChild = parentIndex
+        }
+
+        console.log(child.name, indexForChild);
+
+
+
+        console.log((childrenWithColDef.length > 0), hasListOfValues);
+
+        printLeafNodesWithSameDataPoints(child, currentLabels, indexForChild)
+
+    })
+
+
+    // if (node.type !== "PAGE") {
+
+    //     console.log(node);
+
+    //     node.childNodes.forEach((child, j) => {
+    //         // console.log(node.name, j);
+    //         // traverseTree(child, currentLabels, index)
+
+    //         applyData(child, index, currentLabels)
+    //         updatedNodes++
+
+    //         // child.updated = true
+    //     })
+
+
+
+    // }
+
+
+}
+
+
+
+
+// const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
+// if (node.childNodes && node.childNodes.length > 0) {
+//     printLeafNodesWithSameDataPoints(node.childNodes, currentLabels, j);
+// } else {
+//     j += j
+//     const siblings = node.parent?.childNodes || [];
+//     const allSiblingsHaveSameDataPoints = siblings.every(sibling => sibling.numberOfDataPoints === node.numberOfDataPoints);
+//     if (allSiblingsHaveSameDataPoints) {
+//         console.log(node.name);
+//         console.log(j);
+
+//         applyData(node, j, currentLabels)
+//         console.log("---");
+
+//     }
+// }
+
+
+// let index = 0
+function traverseTree(node, labelsFromParent: Labels = {}, i) {
+    // console.log("-----------");
+    if (node.updated) {
+        return
+    }
+
+    console.log("Traverse tree:", node.name, i);
+
+    if (node.labels.column) {
+        applyData(node, i, labelsFromParent)
+    }
+
+    node.childNodes.forEach(child => {
+        const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
+        traverseTree(child, currentLabels, i)
+    })
+
+
+    // for (let i = 0; i < nodes.length; i++) {
+    //     const node = nodes[i]
+
+    //     if (!node.node.findAllWithCriteria) {
+    //         continue
+    //     }
+
+    //     const childNodes = node.childNodes;
+
+    //     const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
+
+    //     const nodesToApplyData = childNodes.filter((n) => { return n.type === "TEXT" })
+
+    //     const columnValues = nodesToApplyData.map(n => n.labels.column);
+    //     const uniqueColumnValues = [...new Set(columnValues)];
+
+    //     const sortedArrayByColumns = uniqueColumnValues.map(columnValue => {
+    //         return nodesToApplyData.filter(n => n.labels.column === columnValue);
+    //     });
+
+    //     // sortedArrayByColumns.forEach(col => {
+
+    //     //     col.forEach((n, j) => {
+    //     //         // index = 0 ? index = j : index = index;
+    //     //         // console.log(index);
+
+    //     //         applyData(n, j, currentLabels)
+    //     //     });
+    //     // });
+
+    //     nodesToApplyData.forEach((n, i) => {
+    //         applyData(n, i, currentLabels)
+    //     });
+
+    //     // if (sortedArrayByColumns.some(c => c.length === 1)) {
+    //     //     index++
+    //     // } else {
+    //     //     index = 0
+    //     // }
+
+    //     traverseTree(childNodes, currentLabels, i)
+    // }
 }
 
 
@@ -223,10 +444,25 @@ function applyData(node, i: number, labels: Labels) {
     console.log(cellData);
 
     node.node.characters = cellData.toString();
+
 }
 
 
+function aggregateDataPoints(node) {
+    if ((!node.childNodes || node.childNodes.length === 0) && !node.labels) {
+        return node;
+    }
 
+    let numberOfDataPoints = node.labels.column ? 1 : 0
+
+    for (const child of node.childNodes) {
+        numberOfDataPoints += aggregateDataPoints(child).numberOfDataPoints;
+    }
+
+    node.numberOfDataPoints = numberOfDataPoints
+
+    return node;
+}
 
 
 // ---------------------------------
