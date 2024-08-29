@@ -1,5 +1,5 @@
 import { postMessageToast } from './lib/figma-backend-utils';
-import { getLabels, mergeLabels } from './lib/handle-labels';
+import { getLabels, hasLabels, mergeLabels } from './lib/handle-labels';
 import { uniqObjInArr, getAncestorNodeArray, createDataTree, cleanTree } from './lib/node-tree-helpers';
 
 console.clear();
@@ -132,20 +132,90 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
 
     const ancestorNodeArray = uniqObjInArr(getAncestorNodeArray(nodesToApplyData), 'id');
 
+    // console.log(ancestorNodeArray);
 
-    let ancestorTree = createDataTree(ancestorNodeArray);
+    let ancestorTreeRaw = createDataTree(ancestorNodeArray);
 
-    ancestorTree.forEach(node => { cleanTree(node) })
+    // console.log(ancestorTreeRaw);
+    // console.log("-----end ancestorTreeRaw-----");
+    let ancestorTree = []
 
-    ancestorTree.forEach(node => { aggregateDataPoints(node) })
-
-
+    ancestorTree = cleanTree(ancestorTreeRaw)
 
     console.log(ancestorTree);
-    // traverseTree(ancestorTree);
-    ancestorTree.forEach((node, i) => { printLeafNodesWithSameDataPoints(node, {}, i) })
 
 
+    ancestorTree.forEach((node, i) => {
+        recursiveApplyData(node, i);
+    });
+
+
+
+
+    function recursiveApplyData(node, i: number, parentIndex?: number) {
+
+        console.log(node.name, i, parentIndex);
+
+        if (hasLabels(node.name)) {
+            applyData(node, parentIndex ? parentIndex : i, node.labels);
+            updatedNodes++;
+        }
+
+        let sortedNodes = {};
+
+        node.childNodes.forEach(node => {
+            let columnLabel = node.labels?.column || "none";
+            if (!sortedNodes[columnLabel]) {
+                sortedNodes[columnLabel] = [];
+            }
+            sortedNodes[columnLabel].push(node);
+        });
+
+
+
+
+        function checkUniqueNames(nodes): boolean {
+            const nodeColumns = new Set<string>();
+
+            for (const node of nodes) {
+                if (node.labels.column && nodeColumns.has(node.labels.column)) {
+                    return false;
+                }
+                nodeColumns.add(node.labels.column);
+            }
+
+            return true;
+        }
+
+
+        let localIndex;
+        let _parentIndex = parentIndex || 0;
+        if (!checkUniqueNames(node.childNodes)) {
+            console.log("Nodes have duplicate column names");
+            localIndex = 0;
+        } else {
+            console.log("Nodes have unique column names");
+
+            _parentIndex++;
+        }
+
+
+        // TODO: Check if node is likely parent (for now simply based on having multiple children with same column names, but can be extended in the future)
+        // If node is likely parent, increase parent index or create a toggle to lock the current index for the children
+
+
+        console.log(sortedNodes);
+
+        Object.keys(sortedNodes).forEach((key, j) => {
+            sortedNodes[key].forEach((node, k) => {
+                console.log(node.name, k);
+                recursiveApplyData(node, k, _parentIndex > 0 ? _parentIndex : undefined);
+            });
+        });
+
+
+
+    }
 
 
     console.log(updatedNodes);
@@ -159,264 +229,8 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
 let updatedNodes = 0
 
 
-function printLeafNodesWithSameDataPoints(node, labelsFromParent: Labels = {}, parentIndex) {
-    console.log("   ");
-    console.log("   ");
-    console.log("Start print leaf------");
-
-    console.log(node);
-
-
-    const children = node.childNodes;
-
-    // console.log(node);
-    const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
-
-    const allChildsHaveEqualDataPoints = children.every(child => child.numberOfDataPoints === children[0].numberOfDataPoints);
-
-
-
-    let index
-
-    // if (!allChildsHaveEqualDataPoints) {
-    //     return
-    // }
-
-    const childrenWithColDef = children.filter(child => child.labels && child.labels.column);
-    console.log("childrenWithColDef", childrenWithColDef.length > 0 ? true : false);
-
-    const columnValues = childrenWithColDef.map(n => n.labels.column);
-    const uniqueColumnValues = [...new Set(columnValues)];
-
-    const hasListOfValues = uniqueColumnValues.some(arr => arr.length > 1)
-
-
-    // console.log(childrenWithColDef);
-
-    const nodeHasColDef = node.labels && node.labels.column ? true : false
-
-    if (nodeHasColDef) {
-        // index = 0
-        // let localIndex = 0
-
-
-        // if (parentIndex > 1) {
-        //     localIndex = parentIndex
-        // }
-
-        applyData(node, parentIndex, currentLabels)
-
-    }
-
-    // if (childrenWithColDef.length > 0) {
-
-
-    //     const columnValues = childrenWithColDef.map(n => n.labels.column);
-    //     const uniqueColumnValues = [...new Set(columnValues)];
-
-    //     const sortedArrayByColumns = uniqueColumnValues.map(columnValue => {
-    //         return childrenWithColDef.filter(n => n.labels.column === columnValue);
-    //     });
-
-    //     // console.log(sortedArrayByColumns);
-
-
-    //     sortedArrayByColumns.forEach(col => {
-    //         col.forEach((n, j) => {
-    //             let localIndex = parentIndex
-
-
-    //             if (col.length > 1) {
-    //                 localIndex = currentIndex
-    //             } else {
-    //                 _parentIndex++
-
-    //             }
-
-
-    //             // console.log(col.length, localIndex, index, _parentIndex);
-    //             // console.log(col.length, localIndex, index, col, n);
-
-    //             applyData(n, localIndex, currentLabels)
-    //         });
-    //     });
-
-    //     // childrenWithColDef.forEach((child, i) => {
-    //     //     applyData(child, index, currentLabels)
-
-    //     // })
-
-
-    // }
-
-    console.log("ParentIndex:", parentIndex);
-
-    const sortedArrayByColumns = uniqueColumnValues.map(columnValue => {
-        return childrenWithColDef.filter(n => n.labels.column === columnValue);
-    });
-
-
-
-    // sortedArrayByColumns.forEach(col => {
-    //     col.forEach((child, i) => {
-
-    //         if (child.childNodes.length) {
-
-    //         }
-
-    //         let indexForChild = i
-
-    //         if ((childrenWithColDef.length > 0) && hasListOfValues) {
-    //             indexForChild = parentIndex
-    //         }
-
-    //         console.log(indexForChild);
-    //         console.log((childrenWithColDef.length > 0), hasListOfValues);
-
-    //         printLeafNodesWithSameDataPoints(child, currentLabels, indexForChild)
-
-    //     });
-    // });
-
-
-    children.forEach((child, i) => {
-        if (child.childNodes.length) {
-
-        }
-
-        let indexForChild
-
-        if (!hasListOfValues) {
-            indexForChild = i
-
-            console.log("not haslistofvalues");
-
-        } else {
-            console.log("yes haslistofvalues");
-            indexForChild = parentIndex
-        }
-
-        console.log(child.name, indexForChild);
-
-
-
-        console.log((childrenWithColDef.length > 0), hasListOfValues);
-
-        printLeafNodesWithSameDataPoints(child, currentLabels, indexForChild)
-
-    })
-
-
-    // if (node.type !== "PAGE") {
-
-    //     console.log(node);
-
-    //     node.childNodes.forEach((child, j) => {
-    //         // console.log(node.name, j);
-    //         // traverseTree(child, currentLabels, index)
-
-    //         applyData(child, index, currentLabels)
-    //         updatedNodes++
-
-    //         // child.updated = true
-    //     })
-
-
-
-    // }
-
-
-}
-
-
-
-
-// const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
-// if (node.childNodes && node.childNodes.length > 0) {
-//     printLeafNodesWithSameDataPoints(node.childNodes, currentLabels, j);
-// } else {
-//     j += j
-//     const siblings = node.parent?.childNodes || [];
-//     const allSiblingsHaveSameDataPoints = siblings.every(sibling => sibling.numberOfDataPoints === node.numberOfDataPoints);
-//     if (allSiblingsHaveSameDataPoints) {
-//         console.log(node.name);
-//         console.log(j);
-
-//         applyData(node, j, currentLabels)
-//         console.log("---");
-
-//     }
-// }
-
-
-// let index = 0
-function traverseTree(node, labelsFromParent: Labels = {}, i) {
-    // console.log("-----------");
-    if (node.updated) {
-        return
-    }
-
-    console.log("Traverse tree:", node.name, i);
-
-    if (node.labels.column) {
-        applyData(node, i, labelsFromParent)
-    }
-
-    node.childNodes.forEach(child => {
-        const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
-        traverseTree(child, currentLabels, i)
-    })
-
-
-    // for (let i = 0; i < nodes.length; i++) {
-    //     const node = nodes[i]
-
-    //     if (!node.node.findAllWithCriteria) {
-    //         continue
-    //     }
-
-    //     const childNodes = node.childNodes;
-
-    //     const currentLabels = mergeLabels(labelsFromParent || {}, node.labels, false)
-
-    //     const nodesToApplyData = childNodes.filter((n) => { return n.type === "TEXT" })
-
-    //     const columnValues = nodesToApplyData.map(n => n.labels.column);
-    //     const uniqueColumnValues = [...new Set(columnValues)];
-
-    //     const sortedArrayByColumns = uniqueColumnValues.map(columnValue => {
-    //         return nodesToApplyData.filter(n => n.labels.column === columnValue);
-    //     });
-
-    //     // sortedArrayByColumns.forEach(col => {
-
-    //     //     col.forEach((n, j) => {
-    //     //         // index = 0 ? index = j : index = index;
-    //     //         // console.log(index);
-
-    //     //         applyData(n, j, currentLabels)
-    //     //     });
-    //     // });
-
-    //     nodesToApplyData.forEach((n, i) => {
-    //         applyData(n, i, currentLabels)
-    //     });
-
-    //     // if (sortedArrayByColumns.some(c => c.length === 1)) {
-    //     //     index++
-    //     // } else {
-    //     //     index = 0
-    //     // }
-
-    //     traverseTree(childNodes, currentLabels, i)
-    // }
-}
-
-
-
-
 function applyData(node, i: number, labels: Labels) {
-    const currentLabels = mergeLabels(node.labels, labels, false)
+    const currentLabels = labels
 
     if (!currentLabels.column) {
         return console.log("Node has no column definiton.")
@@ -445,23 +259,6 @@ function applyData(node, i: number, labels: Labels) {
 
     node.node.characters = cellData.toString();
 
-}
-
-
-function aggregateDataPoints(node) {
-    if ((!node.childNodes || node.childNodes.length === 0) && !node.labels) {
-        return node;
-    }
-
-    let numberOfDataPoints = node.labels.column ? 1 : 0
-
-    for (const child of node.childNodes) {
-        numberOfDataPoints += aggregateDataPoints(child).numberOfDataPoints;
-    }
-
-    node.numberOfDataPoints = numberOfDataPoints
-
-    return node;
 }
 
 

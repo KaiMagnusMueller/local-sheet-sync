@@ -1,5 +1,10 @@
 import { postMessageToast } from './figma-backend-utils';
 
+export function hasLabels(input: string): boolean {
+    return input.match(/({.*})/) ? true : false
+}
+
+
 export function getLabels(input: string): { existingLabels: Labels, nodeName: string } {
     const existingLabels: Labels = {};
     let nodeName = '';

@@ -1,10 +1,23 @@
-import { getLabels } from "./handle-labels";
+import { getLabels, hasLabels, mergeLabels } from "./handle-labels";
 
 export function getAncestorNodeArray(selection) {
     let ancestorNodeArray = [];
     selection.forEach((elem) => {
-        ancestorNodeArray = ancestorNodeArray.concat(getLineageNodeArray(elem));
+        const lineageNodeArray = getLineageNodeArray(elem)
+
+        // Merge labels of all nodes in the lineage
+        for (let i = lineageNodeArray.length - 1; i > 0; i--) {
+            const element = lineageNodeArray[i];
+            if (hasLabels(element.name)) {
+                const firstNode = lineageNodeArray[0];
+                const mergedLabels = mergeLabels(firstNode.labels, element.labels);
+                firstNode.labels = mergedLabels;
+            }
+        }
+
+        ancestorNodeArray = ancestorNodeArray.concat(lineageNodeArray);
     });
+
     ancestorNodeArray.forEach((elem) => {
         if (elem.type === 'PAGE') {
             delete elem.parent;
@@ -52,6 +65,8 @@ export function createDataTree(dataset) {
     dataset.forEach((aData) => (hashTable[aData.id] = { ...aData, childNodes: [] }));
     const dataTree = [];
 
+
+
     dataset.forEach((aData) => {
         if (aData.parent?.id) {
             hashTable[aData.parent.id].childNodes.push(hashTable[aData.id]);
@@ -59,6 +74,7 @@ export function createDataTree(dataset) {
             dataTree.push(hashTable[aData.id]);
         }
     });
+
     return dataTree;
 }
 
@@ -76,16 +92,33 @@ function copyNode(node: BaseNode) {
     };
 }
 
-export function cleanTree(node) {
-    if (!node.childNodes || node.childNodes.length === 0) {
-        return node;
+export function cleanTree(nodes) {
+    let localNodes = nodes;
+
+    for (let i = 0; i < localNodes.length; i++) {
+        let node = localNodes[i];
+
+        // TODO: Watch for labels that might be present, if there are, we can't skip them
+        // TODO: Alternatively search for another way to apply the correct labels to the respective nodes
+        if (!node.childNodes || node.childNodes.length === 0) {
+            continue;
+        }
+
+        if (node.childNodes.length === 1) {
+            console.log("Remove node:", node.name);
+
+            // Update element in the localNodes array directly
+            localNodes[i] = node.childNodes[0];
+            node = localNodes[i];
+
+            // Decrement index to reprocess the new node at the same position. Kinda hacky, oh well…
+            i--;
+        } else {
+            // Either remove node or go to next level, if we do both, the node inbetween is skipped because we need to do another loop with i--
+            node.childNodes = cleanTree(node.childNodes);
+        }
+
     }
 
-    while (node.childNodes.length === 1) {
-        node = node.childNodes[0];
-    }
-
-    node.childNodes = node.childNodes.map(child => cleanTree(child)).filter(child => child !== null);
-
-    return node;
+    return localNodes;
 }
