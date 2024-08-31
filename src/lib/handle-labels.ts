@@ -1,5 +1,9 @@
 import { postMessageToast } from './figma-backend-utils';
 
+export function getAllImmediateChildsWithLabels(node): [] {
+    return node.childNodes.filter(child => hasLabels(child.name));
+}
+
 export function hasLabels(input: string): boolean {
     return input.match(/({.*})/) ? true : false
 }
@@ -24,6 +28,10 @@ export function getLabels(input: string): { existingLabels: Labels, nodeName: st
     nodeName = remainingString;
 
     return { existingLabels: existingLabels, nodeName };
+}
+
+export function stringifyLabels(node): string {
+    return JSON.stringify(getLabels(node.name).existingLabels);
 }
 
 
