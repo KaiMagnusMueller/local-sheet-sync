@@ -1,6 +1,6 @@
 import { postMessageToast } from './lib/figma-backend-utils';
 import { getAllImmediateChildsWithLabels, getLabels, hasLabels, mergeLabels, stringifyLabels } from './lib/handle-labels';
-import { uniqObjInArr, getAncestorNodeArray, createDataTree, cleanTree } from './lib/node-tree-helpers';
+import { uniqObjInArr, getAncestorNodeArray, createDataTree, cleanTree, groupNodes } from './lib/node-tree-helpers';
 
 console.clear();
 figma.showUI(__html__, { width: 680, height: 420, themeColors: true });
@@ -131,22 +131,26 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
     await loadFonts(nodesToApplyData);
 
     const ancestorNodeArray = uniqObjInArr(getAncestorNodeArray(nodesToApplyData), 'id');
+    console.log(ancestorNodeArray);
 
-    // console.log(ancestorNodeArray);
+    // let ancestorTreeRaw = createDataTree(ancestorNodeArray);
+    // let ancestorTree = []
+    // ancestorTree = cleanTree(ancestorTreeRaw)
+    // console.log(ancestorTree);
 
-    let ancestorTreeRaw = createDataTree(ancestorNodeArray);
+    // console.log(getAncestorNodeArray(nodesToApplyData));
 
-    // console.log(ancestorTreeRaw);
-    // console.log("-----end ancestorTreeRaw-----");
-    let ancestorTree = []
+    const selectedNodesLineage = nodesToApplyData.map(node => { return getAncestorNodeArray([node]) });
+    console.log(selectedNodesLineage);
+    const result = groupNodes(selectedNodesLineage);
+    console.log(result);
 
-    ancestorTree = cleanTree(ancestorTreeRaw)
 
-    console.log(ancestorTree);
 
-    ancestorTree.forEach((node, i) => {
-        recursiveApplyData(node, i);
-    });
+
+    // ancestorTree.forEach((node, i) => {
+    //     recursiveApplyData(node, i);
+    // });
 
 
 
@@ -181,67 +185,9 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
 
 
 
-        function checkUniqueNames(nodes): boolean {
-            const nodeColumns = new Set<string>();
-
-            for (const node of nodes) {
-                if (node.labels.column && nodeColumns.has(node.labels.column)) {
-                    return false;
-                }
-                nodeColumns.add(node.labels.column);
-            }
-
-            return true;
-        }
-
-
-        const nodeIsList = determineIfNodeIsList(node)
-
-        console.log("Node is list:", nodeIsList);
-
-
 
         // TODO: Check if node is likely parent (for now simply based on having multiple children with same column names, but can be extended in the future)
         // If node is likely parent, increase parent index or create a toggle to lock the current index for the children
-
-
-        // console.log(sortedNodes);
-
-        Object.keys(sortedNodes).forEach((key, j) => {
-            sortedNodes[key].forEach((n, k) => {
-
-
-                let _isLocked = false;
-                let localIndex = i;
-
-                if (!checkUniqueNames(getAllImmediateChildsWithLabels(n))) {
-                    console.log("Children have duplicate column names");
-
-                    localIndex = k
-                } else {
-                    _isLocked = true;
-                    console.log("Children have unique column names");
-
-                    localIndex = i
-                }
-
-
-                if (isLocked) {
-                    _isLocked = true;
-                    localIndex = __localIndex
-                } else {
-                    _isLocked = false;
-                    localIndex = k
-                }
-
-                console.log("Checking:", k, _isLocked, __localIndex, n.name);
-
-
-
-
-                recursiveApplyData(n, k, _isLocked, __localIndex);
-            });
-        });
 
 
 
@@ -257,65 +203,6 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
 }
 
 let updatedNodes = 0
-
-
-function determineIfNodeIsList(node) {
-    // const directChilds = node.childNodes.filter(child => child.node.findAllWithCriteria ? true : false);
-    const directChilds = node.childNodes
-
-
-    console.log(directChilds);
-
-    if (directChilds.length <= 0) {
-        console.log("Node has no direct children with findAllWithCriteria. This could be because the node is a leaf node, or the children are not searchable, like text nodes.");
-        return false
-    }
-
-    if (directChilds.length <= 1) {
-        console.log("Node has less than 2 direct children with findAllWithCriteria and can therefore not be a list.");
-        return false
-
-    }
-
-    let labelsInsideChildNodes = []
-    let areAllElementsSame
-
-    directChilds.forEach(child => {
-        const childsWithLabels = getAllImmediateChildsWithLabels(child);
-        labelsInsideChildNodes.push(childsWithLabels.map((n) => {
-            console.log(n);
-            console.log(stringifyLabels(n));
-
-            return stringifyLabels(n);
-        }));
-
-    });
-
-    console.log("Labels inside child nodes:");
-
-    console.log(labelsInsideChildNodes);
-
-    // TODO: Comparison for the column values doesn't seem to work correctly. The contract list id not idenfified as a list here.
-
-    areAllElementsSame = labelsInsideChildNodes.some(e => e.length === 0) ? false : labelsInsideChildNodes.every((l) => {
-        const concatenatedString = l.join('');
-        console.log(concatenatedString);
-        console.log(labelsInsideChildNodes[0].join(''));
-
-
-
-        return concatenatedString === labelsInsideChildNodes[0].join('');
-    });
-
-    console.log("Node has multiple children with findAllWithCriteria, and all children have the same labels:", areAllElementsSame);
-
-    // If all elements are the same, iterate over all the children, increment the index and apply the data
-    // If they are not the same, dont increment the index for the children.
-
-
-    return areAllElementsSame;
-
-}
 
 
 function applyData(node, i: number, labels: Labels) {
