@@ -12,12 +12,17 @@ declare global {
 
     type SearchNodeTypes = [NodeType | "ALL"];
 
-    interface SimpleNode {
+    interface SNode {
         id: string;
         name: string;
-        parent: BaseNode & ChildrenMixin;
-        type: NodeType;
-        selected?: boolean;
+        node: BaseNode;
+        labels: Labels;
+        type: string;
+        parent?: BaseNode;
+    }
+
+    interface TreeNode extends SNode {
+        childNodes: TreeNode[];
     }
 
     interface Labels {

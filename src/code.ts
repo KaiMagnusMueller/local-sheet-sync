@@ -96,8 +96,8 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
     if (currentSelection) {
         console.log("Selection");
 
-        currentSelection.forEach(node => {
 
+        currentSelection.forEach(node => {
             //@ts-ignore
             if (node.findAll !== undefined) {
                 nodesToSearch.push(node);
@@ -107,9 +107,11 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
         })
     };
 
+
+
     nodesToSearch.forEach(node => {
         //@ts-ignore
-        nodesToApplyData = node.findAll(node => {
+        const matchingNodes = node.findAll(node => {
             const match = node.name.match(/({.*})/);
 
             if (match) {
@@ -125,85 +127,35 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
             }
             return false;
         });
-
+        nodesToApplyData = nodesToApplyData.concat(matchingNodes);
     })
+
+
 
     await loadFonts(nodesToApplyData);
 
-    const ancestorNodeArray = uniqObjInArr(getAncestorNodeArray(nodesToApplyData), 'id');
-    console.log(ancestorNodeArray);
-
-    // let ancestorTreeRaw = createDataTree(ancestorNodeArray);
-    // let ancestorTree = []
-    // ancestorTree = cleanTree(ancestorTreeRaw)
-    // console.log(ancestorTree);
-
-    // console.log(getAncestorNodeArray(nodesToApplyData));
-
     const selectedNodesLineage = nodesToApplyData.map(node => { return getAncestorNodeArray([node]) });
-    console.log(selectedNodesLineage);
-    const result = groupNodes(selectedNodesLineage);
-    console.log(result);
+    const groupedNodes = groupNodes(selectedNodesLineage);
+    console.log(groupedNodes);
 
+    groupedNodes.forEach(group => {
+        group.forEach(rootNode => {
+            rootNode.childNodes.forEach((node, i) => {
+                applyData(node, i, node.labels);
+                updatedNodes++;
 
-
-
-    // ancestorTree.forEach((node, i) => {
-    //     recursiveApplyData(node, i);
-    // });
-
-
-
-
-    function recursiveApplyData(node, i: number, isLocked?: boolean, parentIndex?: number) {
-
-        console.log("Start:----------------------");
-        console.log("Current node:", i, isLocked, parentIndex, node.name);
-
-        let __localIndex = i;
-
-        // if (isLocked) {
-        //     __localIndex = parentIndex;
-        // }
-
-
-        if (hasLabels(node.name)) {
-            applyData(node, __localIndex, node.labels);
-            updatedNodes++;
-        }
-
-        let sortedNodes = {};
-
-        node.childNodes.forEach(node => {
-            let columnLabel = node.labels?.column || "none";
-            if (!sortedNodes[columnLabel]) {
-                sortedNodes[columnLabel] = [];
-            }
-            sortedNodes[columnLabel].push(node);
+            });
         });
+    });
 
+    console.log("Applied data to", updatedNodes, updatedNodes !== 1 ? "elements" : "element");
 
-
-
-
-        // TODO: Check if node is likely parent (for now simply based on having multiple children with same column names, but can be extended in the future)
-        // If node is likely parent, increase parent index or create a toggle to lock the current index for the children
-
-
-
-    }
-
-
-    console.log(updatedNodes);
-
-    console.log("Finished applying data");
     figma.ui.postMessage({
         type: 'done-apply-data',
     });
 }
 
 let updatedNodes = 0
-
 
 function applyData(node, i: number, labels: Labels) {
     const currentLabels = labels

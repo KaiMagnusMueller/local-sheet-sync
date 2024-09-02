@@ -33,7 +33,7 @@
 			}
 		}
 		if (event.data.pluginMessage.type == 'done-apply-data') {
-			console.timeEnd('apply-data-duration');
+			console.timeEnd('Elapsed time');
 		}
 	});
 
@@ -111,8 +111,7 @@
 
 		const allSheets = sheetNames.map((sheetName, i) => {
 			const sheet = workbook.Sheets[sheetName];
-
-			return (activeSheet = formatAndCleanSheet(sheet, i));
+			return formatAndCleanSheet(sheet, i);
 		});
 
 		parent.postMessage(
@@ -124,7 +123,7 @@
 			},
 			'*',
 		);
-		console.time('apply-data-duration');
+		console.time('Elapsed time');
 	}
 
 	function formatAndCleanSheet(sheet, index) {
@@ -161,11 +160,11 @@
 			}
 		}
 
-		return (activeSheet = {
+		return {
 			name: sheetNames[index],
 			header: _sheet[0],
 			data: _sheet.slice(1),
-		});
+		};
 	}
 </script>
 

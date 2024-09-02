@@ -32,7 +32,7 @@ export function getAncestorNodeArray(selection) {
  * @param currentNode - The current node for which to retrieve the lineage.
  * @returns An array of nodes up to the ultimate ancestor.
  */
-function getLineageNodeArray(currentNode: BaseNode): any[] {
+function getLineageNodeArray(currentNode: BaseNode): SNode[] {
     let lineage = [copyNode(currentNode)];
     while (currentNode.type !== 'PAGE') {
 
@@ -61,7 +61,7 @@ export function uniqObjInArr(array: Object[], prop: string): any[] {
 }
 
 // Extracted createDataTree function
-export function createDataTree(dataset) {
+export function createDataTree(dataset): TreeNode[] {
     const hashTable = Object.create(null);
     dataset.forEach((aData) => { hashTable[aData.id] = Object.assign({}, aData, { childNodes: [] }); });
     const dataTree = [];
@@ -79,7 +79,7 @@ export function createDataTree(dataset) {
     return dataTree;
 }
 
-function copyNode(node: BaseNode) {
+function copyNode(node: BaseNode): SNode {
     const { existingLabels } = getLabels(node.name);
 
     return {
@@ -93,7 +93,7 @@ function copyNode(node: BaseNode) {
     };
 }
 
-export function cleanTree(nodes) {
+export function cleanTree(nodes: TreeNode[]): TreeNode[] {
     let localNodes = nodes;
 
     for (let i = 0; i < localNodes.length; i++) {
@@ -106,7 +106,7 @@ export function cleanTree(nodes) {
         }
 
         if (node.childNodes.length === 1) {
-            console.log("Remove node:", node.name);
+            // console.log("Remove node:", node.name);
 
             // Update element in the localNodes array directly
             localNodes[i] = node.childNodes[0];
@@ -125,29 +125,19 @@ export function cleanTree(nodes) {
 }
 
 
-interface Node {
-    id: string;
-    name: string;
-    node: BaseNode;
-    labels: {
-        column?: string;
-        sheet?: string;
-        row?: number;
-    };
-    type: string;
-}
 
-export function groupNodes(lineages: Node[][]) {
+
+export function groupNodes(lineages: SNode[][]) {
     // Step 1: Group nodes by labels.sheet and labels.column
     const groupedByLabels = groupByLabels(lineages);
     // Step 2: Group by common ancestors
-    const groupedByAncestors = groupByCommonAncestors(groupedByLabels, lineages);
+    const groupedByAncestors = groupByCommonAncestors(groupedByLabels);
 
     return groupedByAncestors;
 }
 
-function groupByLabels(lineages: Node[][]): Node[][][] {
-    const groups: { [key: string]: Node[][] } = {};
+function groupByLabels(lineages: SNode[][]): SNode[][][] {
+    const groups: { [key: string]: SNode[][] } = {};
 
     for (const path of lineages) {
         const leaf = path[0];
@@ -158,15 +148,13 @@ function groupByLabels(lineages: Node[][]): Node[][][] {
         }
         groups[key].push(path);
     }
-    console.log(Object.values(groups));
-
 
     return Object.values(groups);
 }
 
-function groupByCommonAncestors(groups: Node[][][], lineages: Node[][]): Node[][][] {
+function groupByCommonAncestors(groups: SNode[][][]): TreeNode[][] {
 
-    const result: Node[][][] = [];
+    const result: TreeNode[][] = [];
 
     while (groups.length > 0) {
         const currentGroup = groups.shift()!;
@@ -177,17 +165,14 @@ function groupByCommonAncestors(groups: Node[][][], lineages: Node[][]): Node[][
         });
 
         let ancestorTreeRaw = createDataTree(uniqObjInArr(mergedGroup, 'id'));
+
         let ancestorTree = cleanTree(ancestorTreeRaw)
 
         const nodesWithLeafNodes = getNodesWithLeafNodes(ancestorTree);
 
-        console.log("Nodes with leaf nodes");
+        // console.log(nodesWithLeafNodes);
 
-        console.log(nodesWithLeafNodes);
-        console.log(lineages);
-
-
-        function getNodesWithLeafNodes(tree: any[]): any[] {
+        function getNodesWithLeafNodes(tree: TreeNode[]): TreeNode[] {
             const result = [];
 
             function traverseTree(node) {
@@ -201,7 +186,6 @@ function groupByCommonAncestors(groups: Node[][][], lineages: Node[][]): Node[][
             tree.forEach(node => traverseTree(node));
             return result;
         }
-
 
         result.push(nodesWithLeafNodes);
     }
