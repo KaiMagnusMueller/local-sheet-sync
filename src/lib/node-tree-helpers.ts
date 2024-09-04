@@ -99,8 +99,6 @@ export function cleanTree(nodes: TreeNode[]): TreeNode[] {
     for (let i = 0; i < localNodes.length; i++) {
         let node = localNodes[i];
 
-        // TODO: Watch for labels that might be present, if there are, we can't skip them
-        // TODO: Alternatively search for another way to apply the correct labels to the respective nodes
         if (!node.childNodes || node.childNodes.length === 0) {
             continue;
         }

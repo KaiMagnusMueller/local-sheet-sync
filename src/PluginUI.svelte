@@ -234,6 +234,7 @@
 	:global(*) {
 		margin: 0;
 		padding: 0;
+		color: var(--figma-color-text);
 	}
 
 	.wrapper {
@@ -269,7 +270,7 @@
 
 	th,
 	td {
-		border: 1px solid #000;
+		border: 1px solid var(--figma-color-border);
 		padding: 0.5rem;
 	}
 
@@ -286,7 +287,9 @@
 		overflow-x: scroll;
 		position: sticky;
 		bottom: 0;
-		background-color: var(--figma-color-bg-secondary);
+		background-color: var(--figma-color-bg);
+		border-block-start: 1px solid var(--figma-color-border);
+
 		padding: 0.5rem;
 		padding-block-end: 0.8rem;
 		flex-shrink: 0;
@@ -303,6 +306,7 @@
 		display: flex;
 		align-items: center;
 		padding: 0.25rem;
+		background-color: var(--figma-color-bg-secondary);
 	}
 
 	button.active {

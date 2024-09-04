@@ -1,6 +1,11 @@
-import { postMessageToast } from './figma-backend-utils';
 
-export function getAllImmediateChildsWithLabels(node): [] {
+/**
+ * Retrieves all immediate children of a node that have labels.
+ *
+ * @param {TreeNode} node - The parent node.
+ * @returns {TreeNode[]} - An array of immediate children with labels.
+ */
+export function getAllImmediateChildsWithLabels(node: TreeNode): TreeNode[] {
     return node.childNodes.filter(child => hasLabels(child.name));
 }
 
@@ -8,32 +13,38 @@ export function hasLabels(input: string): boolean {
     return input.match(/({.*})/) ? true : false
 }
 
-
+/**
+ * Retrieves the existing labels and node name from the given input string.
+ * 
+ * @param input - The input string containing the labels and node name.
+ * @returns An object containing the existing labels and node name.
+ */
 export function getLabels(input: string): { existingLabels: Labels, nodeName: string } {
     const existingLabels: Labels = {};
     let nodeName = '';
 
-    // Extracting the JSON object from the string
+    // Extract JSON object from string
     const match = input.match(/({.*})/);
     if (match) {
-        const jsonString = match[0];
-        const jsonObject = JSON.parse(jsonString);
-        existingLabels.sheet = jsonObject.sheet;
-        existingLabels.column = jsonObject.column;
-        existingLabels.row = jsonObject.row;
+        try {
+            const jsonObject = JSON.parse(match[0]);
+            existingLabels.sheet = jsonObject.sheet;
+            existingLabels.column = jsonObject.column;
+            existingLabels.row = jsonObject.row;
+        } catch (error) {
+            console.error('Invalid JSON:', error);
+        }
     }
 
     // Extracting the remaining string
-    const remainingString = input.replace(/({.*})/, '').trim();
-    nodeName = remainingString;
+    nodeName = input.replace(/({.*})/, '').trim();
 
-    return { existingLabels: existingLabels, nodeName };
+    return { existingLabels, nodeName };
 }
 
-export function stringifyLabels(node): string {
+export function stringifyLabels(node: BaseNode): string {
     return JSON.stringify(getLabels(node.name).existingLabels);
 }
-
 
 export function mergeLabels(existingLabels: Labels, newLabels: Labels, toggleLabels?: boolean): Labels | undefined {
     // if (!existingLabels && !newLabels) {

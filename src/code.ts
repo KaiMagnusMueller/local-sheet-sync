@@ -1,6 +1,6 @@
 import { postMessageToast } from './lib/figma-backend-utils';
-import { getAllImmediateChildsWithLabels, getLabels, hasLabels, mergeLabels, stringifyLabels } from './lib/handle-labels';
-import { uniqObjInArr, getAncestorNodeArray, createDataTree, cleanTree, groupNodes } from './lib/node-tree-helpers';
+import { getLabels, mergeLabels } from './lib/handle-labels';
+import { getAncestorNodeArray, groupNodes } from './lib/node-tree-helpers';
 
 console.clear();
 figma.showUI(__html__, { width: 680, height: 420, themeColors: true });
@@ -24,8 +24,6 @@ if (sheet) {
     });
 }
 
-let dataToApply = []
-
 
 // ---------------------------------
 // ON PLUGIN MESSAGE
@@ -43,10 +41,7 @@ figma.ui.onmessage = (msg) => {
 
             break;
         case "apply-data":
-            dataToApply = msg.data;
-            // console.log(dataToApply);
-
-            applyDataToSelection(figma.currentPage.selection);
+            applyDataToSelection(figma.currentPage.selection, msg.data);
 
             break
         default:
@@ -73,62 +68,53 @@ function applyLabelsToSelection(currentSelection: readonly SceneNode[], newLabel
 }
 
 
-async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
+async function applyDataToSelection(currentSelection: readonly SceneNode[], dataToApply) {
+    let updatedNodes = 0
+
     let nodesToSearch: BaseNode[] = [];
     let nodesToApplyData: BaseNode[] = [];
 
 
-    // Search current page if no selection
-    if (!currentSelection) {
-        console.log("No selection");
-
-        figma.currentPage.children.forEach(node => {
-            //@ts-ignore
-            if (node.findAll !== undefined) {
-                nodesToSearch.push(node);
-            } else if (node.name.match(/({.*})/)) {
-                nodesToApplyData.push(node);
-            }
-        })
+    switch (currentSelection.length) {
+        case 0:
+            // Search current page if no selection
+            figma.currentPage.children.forEach(node => {
+                //@ts-ignore
+                if (node.findAll !== undefined) {
+                    nodesToSearch.push(node);
+                } else if (node.name.match(/({.*})/)) {
+                    nodesToApplyData.push(node);
+                }
+            });
+            break;
+        default:
+            currentSelection.forEach(node => {
+                //@ts-ignore
+                if (node.findAll !== undefined) {
+                    nodesToSearch.push(node);
+                } else if (node.name.match(/({.*})/)) {
+                    nodesToApplyData.push(node);
+                }
+            });
+            break;
     }
-
-    // Search selected nodes
-    if (currentSelection) {
-        console.log("Selection");
-
-
-        currentSelection.forEach(node => {
-            //@ts-ignore
-            if (node.findAll !== undefined) {
-                nodesToSearch.push(node);
-            } else if (node.name.match(/({.*})/)) {
-                nodesToApplyData.push(node);
-            }
-        })
-    };
-
-
 
     nodesToSearch.forEach(node => {
         //@ts-ignore
         const matchingNodes = node.findAll(node => {
             const match = node.name.match(/({.*})/);
+            if (!match) return false;
 
-            if (match) {
-                const jsonString = match[0];
-                const jsonObject = JSON.parse(jsonString);
-                // existingLabels.sheet = jsonObject.sheet;
-                let column = jsonObject.column;
-                // existingLabels.row = jsonObject.row;
-
-                if (column) {
-                    return true;
-                }
+            try {
+                const jsonObject = JSON.parse(match[0]);
+                return !!jsonObject.column;
+            } catch (error) {
+                console.error('Invalid JSON:', error);
+                return false;
             }
-            return false;
         });
         nodesToApplyData = nodesToApplyData.concat(matchingNodes);
-    })
+    });
 
 
 
@@ -136,14 +122,13 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
 
     const selectedNodesLineage = nodesToApplyData.map(node => { return getAncestorNodeArray([node]) });
     const groupedNodes = groupNodes(selectedNodesLineage);
-    console.log(groupedNodes);
+    console.log("Grouped nodes:", groupedNodes);
 
     groupedNodes.forEach(group => {
         group.forEach(rootNode => {
             rootNode.childNodes.forEach((node, i) => {
-                applyData(node, i, node.labels);
+                applyData(node, i, node.labels, dataToApply);
                 updatedNodes++;
-
             });
         });
     });
@@ -155,27 +140,24 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[]) {
     });
 }
 
-let updatedNodes = 0
 
-function applyData(node, i: number, labels: Labels) {
-    const currentLabels = labels
-
-    if (!currentLabels.column) {
+function applyData(node, i: number, labels: Labels, dataToApply) {
+    if (!labels.column) {
         return console.log("Node has no column definiton.")
     }
 
-    if (!currentLabels.sheet) {
+    if (!labels.sheet) {
         console.log("Node has no sheet definition, using default sheet 0");
     }
 
-    const sheetIndex = Math.max(dataToApply.findIndex(e => { return e.name === currentLabels.sheet }), 0);
-    const columnIndex = dataToApply[sheetIndex].header.findIndex(e => { return e === currentLabels.column })
+    const sheetIndex = Math.max(dataToApply.findIndex(e => { return e.name === labels.sheet }), 0);
+    const columnIndex = dataToApply[sheetIndex].header.findIndex(e => { return e === labels.column })
 
     if (sheetIndex < 0) {
-        return console.log("Sheet does not exist in imported data. Sheet name:", currentLabels.sheet);
+        return console.log("Sheet does not exist in imported data. Sheet name:", labels.sheet);
     }
     if (columnIndex < 0) {
-        return console.log("Column does not exist in sheet. Sheet name:", currentLabels.sheet, "Column name:", currentLabels.column);
+        return console.log("Column does not exist in sheet. Sheet name:", labels.sheet, "Column name:", labels.column);
 
     }
 
@@ -186,7 +168,6 @@ function applyData(node, i: number, labels: Labels) {
     // console.log(cellData);
 
     node.node.characters = cellData.toString();
-
 }
 
 
@@ -213,33 +194,6 @@ function handleSelectionChange() {
     });
 }
 
-
-
-
-function clone(val) {
-    const type = typeof val
-    if (val === null) {
-        return null
-    } else if (type === 'undefined' || type === 'number' ||
-        type === 'string' || type === 'boolean') {
-        return val
-    } else if (type === 'object') {
-        if (val instanceof Array) {
-            return val.map(x => clone(x))
-        } else if (val instanceof Uint8Array) {
-            return new Uint8Array(val)
-        } else {
-            let o = {}
-            for (const key in val) {
-                o[key] = clone(val[key])
-            }
-            return o
-        }
-    }
-    throw 'unknown'
-}
-
-
 async function loadFonts(nodesToApplyData: BaseNode[]) {
     let fontsToLoad = [];
     nodesToApplyData.forEach((node, i) => {
@@ -253,9 +207,12 @@ async function loadFonts(nodesToApplyData: BaseNode[]) {
         })
     });
 
-    await Promise.all(
-        fontsToLoad.map(figma.loadFontAsync)
-    );
+
+    try {
+        await Promise.all(fontsToLoad.map(figma.loadFontAsync));
+    } catch (error) {
+        console.error("Error loading fonts:", error);
+    }
 
     return fontsToLoad;
 }
