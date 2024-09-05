@@ -94,10 +94,8 @@ function copyNode(node: BaseNode): SNode {
 }
 
 export function cleanTree(nodes: TreeNode[]): TreeNode[] {
-    let localNodes = nodes;
-
-    for (let i = 0; i < localNodes.length; i++) {
-        let node = localNodes[i];
+    for (let i = 0; i < nodes.length; i++) {
+        let node = nodes[i];
 
         if (!node.childNodes || node.childNodes.length === 0) {
             continue;
@@ -107,8 +105,8 @@ export function cleanTree(nodes: TreeNode[]): TreeNode[] {
             // console.log("Remove node:", node.name);
 
             // Update element in the localNodes array directly
-            localNodes[i] = node.childNodes[0];
-            node = localNodes[i];
+            nodes[i] = node.childNodes[0];
+            node = nodes[i];
 
             // Decrement index to reprocess the new node at the same position. Kinda hacky, oh well…
             i--;
@@ -118,8 +116,7 @@ export function cleanTree(nodes: TreeNode[]): TreeNode[] {
         }
 
     }
-
-    return localNodes;
+    return nodes;
 }
 
 
