@@ -1,10 +1,23 @@
-import { getLabels } from "./handle-labels";
+import { getLabels, hasLabels, mergeLabels } from "./handle-labels";
 
 export function getAncestorNodeArray(selection) {
     let ancestorNodeArray = [];
     selection.forEach((elem) => {
-        ancestorNodeArray = ancestorNodeArray.concat(getLineageNodeArray(elem));
+        const lineageNodeArray = getLineageNodeArray(elem)
+
+        // Merge labels of all nodes in the lineage
+        for (let i = lineageNodeArray.length - 1; i > 0; i--) {
+            const element = lineageNodeArray[i];
+            if (hasLabels(element.name)) {
+                const firstNode = lineageNodeArray[0];
+                const mergedLabels = mergeLabels(firstNode.labels, element.labels);
+                firstNode.labels = mergedLabels;
+            }
+        }
+
+        ancestorNodeArray = ancestorNodeArray.concat(lineageNodeArray);
     });
+
     ancestorNodeArray.forEach((elem) => {
         if (elem.type === 'PAGE') {
             delete elem.parent;
@@ -19,9 +32,10 @@ export function getAncestorNodeArray(selection) {
  * @param currentNode - The current node for which to retrieve the lineage.
  * @returns An array of nodes up to the ultimate ancestor.
  */
-function getLineageNodeArray(currentNode: BaseNode): any[] {
+function getLineageNodeArray(currentNode: BaseNode): SNode[] {
     let lineage = [copyNode(currentNode)];
     while (currentNode.type !== 'PAGE') {
+
         currentNode = currentNode.parent;
         lineage.push(copyNode(currentNode));
     }
@@ -47,10 +61,12 @@ export function uniqObjInArr(array: Object[], prop: string): any[] {
 }
 
 // Extracted createDataTree function
-export function createDataTree(dataset) {
+export function createDataTree(dataset): TreeNode[] {
     const hashTable = Object.create(null);
-    dataset.forEach((aData) => (hashTable[aData.id] = { ...aData, childNodes: [] }));
+    dataset.forEach((aData) => { hashTable[aData.id] = Object.assign({}, aData, { childNodes: [] }); });
     const dataTree = [];
+
+
 
     dataset.forEach((aData) => {
         if (aData.parent?.id) {
@@ -59,10 +75,11 @@ export function createDataTree(dataset) {
             dataTree.push(hashTable[aData.id]);
         }
     });
+
     return dataTree;
 }
 
-function copyNode(node: BaseNode) {
+function copyNode(node: BaseNode): SNode {
     const { existingLabels } = getLabels(node.name);
 
     return {
@@ -76,16 +93,97 @@ function copyNode(node: BaseNode) {
     };
 }
 
-export function cleanTree(node) {
-    if (!node.childNodes || node.childNodes.length === 0) {
-        return node;
+export function cleanTree(nodes: TreeNode[]): TreeNode[] {
+    for (let i = 0; i < nodes.length; i++) {
+        let node = nodes[i];
+
+        if (!node.childNodes || node.childNodes.length === 0) {
+            continue;
+        }
+
+        if (node.childNodes.length === 1) {
+            // console.log("Remove node:", node.name);
+
+            // Update element in the localNodes array directly
+            nodes[i] = node.childNodes[0];
+            node = nodes[i];
+
+            // Decrement index to reprocess the new node at the same position. Kinda hacky, oh well…
+            i--;
+        } else {
+            // Either remove node or go to next level, if we do both, the node inbetween is skipped because we need to do another loop with i--
+            node.childNodes = cleanTree(node.childNodes);
+        }
+
+    }
+    return nodes;
+}
+
+
+
+
+export function groupNodes(lineages: SNode[][]) {
+    // Step 1: Group nodes by labels.sheet and labels.column
+    const groupedByLabels = groupByLabels(lineages);
+    // Step 2: Group by common ancestors
+    const groupedByAncestors = groupByCommonAncestors(groupedByLabels);
+
+    return groupedByAncestors;
+}
+
+function groupByLabels(lineages: SNode[][]): SNode[][][] {
+    const groups: { [key: string]: SNode[][] } = {};
+
+    for (const path of lineages) {
+        const leaf = path[0];
+        const key = `${leaf.labels.sheet || ''}-${leaf.labels.column || ''}`;
+
+        if (!groups[key]) {
+            groups[key] = [];
+        }
+        groups[key].push(path);
     }
 
-    while (node.childNodes.length === 1) {
-        node = node.childNodes[0];
+    return Object.values(groups);
+}
+
+function groupByCommonAncestors(groups: SNode[][][]): TreeNode[][] {
+
+    const result: TreeNode[][] = [];
+
+    while (groups.length > 0) {
+        const currentGroup = groups.shift()!;
+
+        let mergedGroup = [];
+        currentGroup.forEach((path) => {
+            mergedGroup = mergedGroup.concat(path);
+        });
+
+        let ancestorTreeRaw = createDataTree(uniqObjInArr(mergedGroup, 'id'));
+
+        let ancestorTree = cleanTree(ancestorTreeRaw)
+
+        const nodesWithLeafNodes = getNodesWithLeafNodes(ancestorTree);
+
+        // console.log(nodesWithLeafNodes);
+
+        function getNodesWithLeafNodes(tree: TreeNode[]): TreeNode[] {
+            const result = [];
+
+            function traverseTree(node) {
+                if (node.childNodes.every(child => !child.childNodes || child.childNodes.length === 0)) {
+                    result.push(node);
+                } else {
+                    node.childNodes.forEach(child => traverseTree(child));
+                }
+            }
+
+            tree.forEach(node => traverseTree(node));
+            return result;
+        }
+
+        result.push(nodesWithLeafNodes);
     }
 
-    node.childNodes = node.childNodes.map(child => cleanTree(child)).filter(child => child !== null);
-
-    return node;
+    return result;
 }
