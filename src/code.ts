@@ -24,6 +24,11 @@ if (sheet) {
     });
 }
 
+figma.ui.postMessage({
+    type: 'current-user',
+    data: { id: figma.currentUser.id, name: figma.currentUser.name },
+});
+
 
 // ---------------------------------
 // ON PLUGIN MESSAGE
@@ -127,7 +132,7 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[], data
     groupedNodes.forEach(group => {
         group.forEach(rootNode => {
             rootNode.childNodes.forEach((node, i) => {
-                applyData(node, i, node.labels, dataToApply);
+                applyData(node, i, node.labels, dataToApply.data);
                 updatedNodes++;
             });
         });
@@ -139,7 +144,7 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[], data
         type: 'done-apply-data',
     });
 
-    addActionToHistory();
+    // addActionToHistory();
 }
 
 
