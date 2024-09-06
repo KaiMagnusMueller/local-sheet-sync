@@ -1,5 +1,14 @@
+import type { WorkBook } from "xlsx";
+
 // global.d.ts
 declare global {
+    interface ImportedFile {
+        fileName: string;
+        importedDate: Date;
+        workbook: WorkBook;
+        activeSheetName: string;
+    }
+
     interface Search {
         node_types: SearchNodeTypes;
         area_type: "PAGE" | "SELECTION" | "ROOT_FRAME" | "SELECTION_PRESET";
@@ -29,6 +38,16 @@ declare global {
         sheet?: string;
         column?: string;
         row?: string;
+    }
+
+    interface HistoryItem {
+        fileName: string;
+        action: "applyData" | "importData";
+        timestamp: string;
+        user: {
+            id: string;
+            name: string;
+        };
     }
 }
 

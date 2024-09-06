@@ -13,6 +13,8 @@
 	let activeSheet;
 	let activeSheetName;
 
+	let currentFile: ImportedFile;
+
 	window.addEventListener('message', (event) => {
 		if (event.data.pluginMessage.type == 'restore-sheet') {
 			if (event.data.pluginMessage.data) {
@@ -128,7 +130,10 @@
 			{
 				pluginMessage: {
 					type: 'apply-data',
-					data: allSheets,
+					data: {
+						fileName: workbook.Props.Title,
+						data: allSheets,
+					},
 				},
 			},
 			'*',

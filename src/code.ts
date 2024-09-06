@@ -138,6 +138,8 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[], data
     figma.ui.postMessage({
         type: 'done-apply-data',
     });
+
+    addActionToHistory();
 }
 
 
@@ -168,6 +170,16 @@ function applyData(node, i: number, labels: Labels, dataToApply) {
     // console.log(cellData);
 
     node.node.characters = cellData.toString();
+}
+
+function addActionToHistory(actionObject) {
+    figma.clientStorage.getAsync('history').then(history => {
+        if (!history) {
+            history = [];
+        }
+
+        history.push(actionObject);
+    });
 }
 
 
