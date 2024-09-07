@@ -13,6 +13,8 @@ let sheet = documentNode.getPluginData('sheet');
 // TODO: Add settings
 let settings = documentNode.getPluginData('settings');
 
+let activityHistory = documentNode.getPluginData('activity-history');
+
 // ---------------------------------
 // ON STARTUP
 // ---------------------------------
@@ -24,10 +26,26 @@ if (sheet) {
     });
 }
 
+const currentUser = {
+    id: figma.currentUser.id,
+    name: figma.currentUser.name
+}
+
 figma.ui.postMessage({
     type: 'current-user',
-    data: { id: figma.currentUser.id, name: figma.currentUser.name },
+    data: currentUser,
 });
+
+if (activityHistory) {
+    figma.ui.postMessage({
+        type: 'activity-history',
+        data: activityHistory,
+    });
+} else {
+    activityHistory = "[]";
+}
+
+
 
 
 // ---------------------------------
@@ -140,9 +158,27 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[], data
 
     console.log("Applied data to", updatedNodes, updatedNodes !== 1 ? "elements" : "element");
 
+    const historyItem: HistoryItem = {
+        fileName: dataToApply.fileName,
+        action: "applyData",
+        timestamp: new Date().toISOString(),
+        user: currentUser,
+    }
+
+
+    // TODO: Move this to a function
+
+    let parsedActivityHistory = JSON.parse(activityHistory);
+
+    parsedActivityHistory.push(historyItem);
+
+    activityHistory = JSON.stringify(parsedActivityHistory);
+    documentNode.setPluginData('activity-history', activityHistory);
+
     figma.ui.postMessage({
-        type: 'done-apply-data',
+        type: 'done-apply-data', data: activityHistory
     });
+
 
     // addActionToHistory();
 }

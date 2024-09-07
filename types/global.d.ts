@@ -4,9 +4,14 @@ import type { WorkBook } from "xlsx";
 declare global {
     interface ImportedFile {
         fileName: string;
-        importedDate: Date;
-        workbook: WorkBook;
-        activeSheetName: string;
+        date: string;
+        data: {};
+        activeSheet: number;
+        createdByUser: {
+            id: string;
+            name: string;
+        },
+        saveVersion: string;
     }
 
     interface Search {

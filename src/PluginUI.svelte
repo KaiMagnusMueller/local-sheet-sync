@@ -6,6 +6,7 @@
 	import TabBar from './components/TabBar/index.svelte';
 	import { Button, IconSpinner, Icon } from 'figma-plugin-ds-svelte';
 	import CellContent from './components/Table/CellContent.svelte';
+	import DataDisplay from './components/DataDisplay.svelte';
 
 	let isApplyingData = false;
 	let currentSaveVersion = '0.1';
@@ -29,6 +30,9 @@
 		},
 		saveVersion: '',
 	};
+
+	let activityHistory = [];
+	let mostRecentHistoryItem;
 
 	// function initializeDataSheet(fileName) {}
 
@@ -56,6 +60,7 @@
 
 				const data = decompressFromUTF16(event.data.pluginMessage.data);
 				currentFile = JSON.parse(data);
+
 				console.log(currentFile);
 
 				sheetNames = currentFile.data.map((sheet) => sheet.name);
@@ -66,9 +71,24 @@
 		if (event.data.pluginMessage.type == 'done-apply-data') {
 			isApplyingData = false;
 			console.timeEnd('Elapsed time');
+
+			activityHistory = JSON.parse(event.data.pluginMessage.data);
+
+			mostRecentHistoryItem = activityHistory[activityHistory.length - 1];
 		}
+
 		if (event.data.pluginMessage.type === 'current-user') {
 			currentUser = event.data.pluginMessage.data;
+		}
+
+		if (event.data.pluginMessage.type === 'activity-history') {
+			if (!event.data.pluginMessage.data) return;
+
+			activityHistory = JSON.parse(event.data.pluginMessage.data);
+
+			console.log(activityHistory);
+
+			mostRecentHistoryItem = activityHistory[activityHistory.length - 1];
 		}
 	});
 
@@ -227,6 +247,16 @@
 		<div class="horizontal-group">
 			{#if isApplyingData}
 				<Icon iconName={IconSpinner} color="blue" spin />
+			{/if}
+			{#if mostRecentHistoryItem}
+				<DataDisplay label={'Last updated'}
+					>{new Date(mostRecentHistoryItem.timestamp).toLocaleString([], {
+						day: 'numeric',
+						month: 'numeric',
+						year: 'numeric',
+						hour: '2-digit',
+						minute: '2-digit',
+					})}</DataDisplay>
 			{/if}
 			<Button on:click={(e) => handleApplyData(e)} disabled={isApplyingData}
 				>Apply data</Button>
