@@ -179,8 +179,12 @@
 </script>
 
 <div class="wrapper">
+	<a href="https://app.intersectionslab.com/login">Log in with Intersections</a>
 	<!-- Display the selected sheet data in a table -->
 	<main>
+		<!-- <input type="email" />
+		<input type="password" /> -->
+
 		{#if activeSheet}
 			<header>
 				<TabBar

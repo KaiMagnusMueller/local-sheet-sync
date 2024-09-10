@@ -11,7 +11,7 @@
     ],
     "ui": "index.html",
 	"networkAccess": {
-		"allowedDomains": ["https://*.cloudinary.com"],
+		"allowedDomains": ["https://app.intersectionslab.com/"],
 		"reasoning": "Tree Navigator loads tutorial images from Cloudinary"
 	}
   }
