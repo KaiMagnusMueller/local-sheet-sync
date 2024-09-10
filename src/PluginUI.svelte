@@ -54,41 +54,30 @@
 	// }
 
 	window.addEventListener('message', (event) => {
-		if (event.data.pluginMessage.type == 'restore-sheet') {
-			if (event.data.pluginMessage.data) {
-				// Read the workbook from the file data
+		switch (event.data.pluginMessage.type) {
+			case 'restore-sheet':
+				if (!event.data.pluginMessage.data) return console.log('no data to restore found');
 
+				// Read the workbook from the file data
 				const data = decompressFromUTF16(event.data.pluginMessage.data);
 				currentFile = JSON.parse(data);
-
 				console.log(currentFile);
-
 				sheetNames = currentFile.data.map((sheet) => sheet.name);
-			} else {
-				console.log('no data to restore found');
-			}
-		}
-		if (event.data.pluginMessage.type == 'done-apply-data') {
-			isApplyingData = false;
-			console.timeEnd('Elapsed time');
-
-			activityHistory = JSON.parse(event.data.pluginMessage.data);
-
-			mostRecentHistoryItem = activityHistory[activityHistory.length - 1];
-		}
-
-		if (event.data.pluginMessage.type === 'current-user') {
-			currentUser = event.data.pluginMessage.data;
-		}
-
-		if (event.data.pluginMessage.type === 'activity-history') {
-			if (!event.data.pluginMessage.data) return;
-
-			activityHistory = JSON.parse(event.data.pluginMessage.data);
-
-			console.log(activityHistory);
-
-			mostRecentHistoryItem = activityHistory[activityHistory.length - 1];
+				break;
+			case 'done-apply-data':
+				isApplyingData = false;
+				console.timeEnd('Elapsed time');
+				break;
+			case 'current-user':
+				currentUser = event.data.pluginMessage.data;
+				break;
+			case 'announce-activity-history':
+				if (!event.data.pluginMessage.data) return;
+				activityHistory = JSON.parse(event.data.pluginMessage.data);
+				mostRecentHistoryItem = activityHistory[activityHistory.length - 1];
+				break;
+			default:
+				break;
 		}
 	});
 

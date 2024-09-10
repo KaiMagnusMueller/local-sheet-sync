@@ -37,13 +37,12 @@ figma.ui.postMessage({
 });
 
 if (activityHistory) {
-    figma.ui.postMessage({
-        type: 'activity-history',
-        data: activityHistory,
-    });
+    announceActivityHistory(activityHistory)
 } else {
     activityHistory = "[]";
 }
+
+let parsedActivityHistory = JSON.parse(activityHistory);
 
 
 
@@ -168,19 +167,12 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[], data
 
     // TODO: Move this to a function
 
-    let parsedActivityHistory = JSON.parse(activityHistory);
 
-    parsedActivityHistory.push(historyItem);
-
-    activityHistory = JSON.stringify(parsedActivityHistory);
-    documentNode.setPluginData('activity-history', activityHistory);
+    updateActivityHistory(historyItem);
 
     figma.ui.postMessage({
-        type: 'done-apply-data', data: activityHistory
+        type: 'done-apply-data'
     });
-
-
-    // addActionToHistory();
 }
 
 
@@ -213,16 +205,21 @@ function applyData(node, i: number, labels: Labels, dataToApply) {
     node.node.characters = cellData.toString();
 }
 
-function addActionToHistory(actionObject) {
-    figma.clientStorage.getAsync('history').then(history => {
-        if (!history) {
-            history = [];
-        }
+function updateActivityHistory(historyItem: HistoryItem) {
+    parsedActivityHistory.push(historyItem);
 
-        history.push(actionObject);
-    });
+    activityHistory = JSON.stringify(parsedActivityHistory);
+    documentNode.setPluginData('activity-history', activityHistory);
+
+    announceActivityHistory(activityHistory)
 }
 
+function announceActivityHistory(activityHistory) {
+    figma.ui.postMessage({
+        type: 'announce-activity-history',
+        data: activityHistory,
+    });
+};
 
 // ---------------------------------
 // SELECTION CHANGE EVENT
