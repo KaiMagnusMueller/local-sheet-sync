@@ -53,6 +53,18 @@ export function saveSettings(settings) {
 	console.log('save settings...');
 }
 
+export function sendMsgToFigma(type, data) {
+    parent.postMessage(
+        {
+            pluginMessage: {
+                type: type,
+                data: data,
+            },
+        },
+        '*'
+    );
+}
+
 // Component Icons
 import AppIcon from '../assets/icons/AppIcon.svg';
 import Component from '../assets/icons/NodeTypes/Component.svg';

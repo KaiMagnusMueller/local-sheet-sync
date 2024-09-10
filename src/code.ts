@@ -24,6 +24,24 @@ if (sheet) {
     });
 }
 
+let pocketbase_auth_token;
+
+try {
+    figma.clientStorage.getAsync('pocketbase_auth').then(auth => {
+        pocketbase_auth_token = auth || "";
+        // console.log("Getting auth token:", pocketbase_auth_token);
+        figma.ui.postMessage({
+            type: 'get-pb-auth-token',
+            data: pocketbase_auth_token,
+        });
+    });
+
+} catch (error) {
+    pocketbase_auth_token = ""
+    console.error("Error retrieving pocketbase_auth:", error);
+}
+
+
 
 // ---------------------------------
 // ON PLUGIN MESSAGE
@@ -44,6 +62,12 @@ figma.ui.onmessage = (msg) => {
             applyDataToSelection(figma.currentPage.selection, msg.data);
 
             break
+        case "set-pb-auth-token":
+            console.log("Setting auth token:", msg.data);
+            const authData = msg.data;
+            figma.clientStorage.setAsync(authData.key, authData.value);
+
+            break;
         default:
             break;
     }

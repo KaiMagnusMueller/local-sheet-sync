@@ -1,4 +1,6 @@
 <script>
+	import PBAuthTest from './PBAuthTest.svelte';
+
 	import * as XLSX from 'xlsx';
 	import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
 	import FileInput from './components/FileInput.svelte';
@@ -179,11 +181,9 @@
 </script>
 
 <div class="wrapper">
-	<a href="https://app.intersectionslab.com/login">Log in with Intersections</a>
 	<!-- Display the selected sheet data in a table -->
 	<main>
-		<!-- <input type="email" />
-		<input type="password" /> -->
+		<PBAuthTest></PBAuthTest>
 
 		{#if activeSheet}
 			<header>
