@@ -21,15 +21,20 @@
 
 	<Button on:click={filePicker.click()} variant="primary">Import File</Button>
 
-	<DataDisplay label={fileName || 'Last import'}
-		>{'Last updated: ' +
-			new Date(lastUpdatedTime).toLocaleString([], {
-				day: 'numeric',
-				month: 'numeric',
-				year: 'numeric',
-				hour: '2-digit',
-				minute: '2-digit',
-			}) || 'No file selected'}</DataDisplay>
+	<DataDisplay label={fileName || 'Last import'}>
+		{#if lastUpdatedTime}
+			{'Last updated: ' +
+				new Date(lastUpdatedTime).toLocaleString([], {
+					day: 'numeric',
+					month: 'numeric',
+					year: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit',
+				})}
+		{:else}
+			{'No file selected'}
+		{/if}
+	</DataDisplay>
 </div>
 
 <style>
