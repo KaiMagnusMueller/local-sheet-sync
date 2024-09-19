@@ -7,6 +7,7 @@
 	import TabBar from './components/TabBar/index.svelte';
 	import { Button, IconSpinner, Icon } from 'figma-plugin-ds-svelte';
 	import CellContent from './components/Table/CellContent.svelte';
+	import MainSideNav from './components/MainSideNav/index.svelte';
 
 	// Variables to store workbook and sheet data
 	let workbook;
@@ -180,6 +181,14 @@
 	}
 </script>
 
+<MainSideNav
+	items={[
+		{ title: 'Home', icon: '🏠', active: true },
+		{ title: 'Settings', icon: '⚙️' },
+		{ title: 'Help', icon: '❓' },
+	]}
+	profile={{ imgsrc: 'https://via.placeholder.com/150', name: 'John Doe' }} />
+
 <div class="wrapper">
 	<!-- Display the selected sheet data in a table -->
 	<main>
@@ -254,16 +263,13 @@
 	}
 
 	.wrapper {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
-		height: 100%;
+		overflow: auto;
 	}
 
 	main {
-		display: flex;
-		flex-direction: column;
-		overflow: scroll;
+		overflow: auto;
 		flex-grow: 1;
 		gap: 0.5rem;
 	}
@@ -307,43 +313,6 @@
 
 	th:first-of-type {
 		border-top-left-radius: var(--border-radius-large);
-	}
-
-	menu {
-		display: flex;
-		flex-direction: row;
-		gap: 1rem;
-		overflow-x: scroll;
-		position: sticky;
-		bottom: 0;
-		background-color: var(--figma-color-bg);
-		border-block-start: 1px solid var(--figma-color-border);
-
-		padding: 0.5rem;
-		padding-block-end: 0.8rem;
-		flex-shrink: 0;
-	}
-
-	ul {
-		list-style: none;
-		display: contents;
-		/* padding: 0.5rem;
-		border: 1px solid #000; */
-	}
-
-	button {
-		display: flex;
-		align-items: center;
-		padding: 0.25rem;
-		background-color: var(--figma-color-bg-secondary);
-	}
-
-	button.active {
-		background-color: var(--figma-color-highlight);
-	}
-
-	button span {
-		pointer-events: none;
 	}
 
 	:global(.line-clamp-3) {
