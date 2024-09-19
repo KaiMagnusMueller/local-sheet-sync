@@ -92,9 +92,10 @@
 			const data = new Uint8Array(e.target.result);
 
 			// Read the workbook from the file data
-			const workbook = XLSX.read(data, { type: 'array' });
+			// For now use only default formatting in the sheet_to_json method
+			// In the future, consider parsing dates and currencies
+			const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 			console.log(workbook);
-
 			const sheets = workbook.SheetNames.map((sheetName, i) => {
 				const sheet = workbook.Sheets[sheetName];
 				return formatAndCleanSheet(sheet, sheetName, i);
@@ -140,6 +141,7 @@
 			defval: '',
 			blankrows: false,
 			skipHidden: true,
+			raw: false,
 		});
 
 		//Search for empty columns in header row
@@ -254,10 +256,10 @@
 </div>
 
 <style>
-	:global(*) {
+	:global(menu, ul, li) {
 		margin: 0;
 		padding: 0;
-		color: var(--figma-color-text);
+		list-style: none;
 	}
 
 	.wrapper {
@@ -339,7 +341,7 @@
 		overflow: hidden;
 	}
 
-	.pointer-none {
+	:global(.pointer-none) {
 		pointer-events: none;
 	}
 

@@ -34,7 +34,10 @@
 	.content-wrapper.header span {
 		font-weight: var(--font-weight-bold);
 		text-align: left;
-		word-break: break-all;
+	}
+
+	span {
+		/* word-break: break-all; */
 	}
 
 	.button-container {
