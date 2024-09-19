@@ -36,9 +36,9 @@
 		text-align: left;
 	}
 
-	span {
-		/* word-break: break-all; */
-	}
+	/* span {
+		word-break: break-all;
+	} */
 
 	.button-container {
 		position: absolute;
