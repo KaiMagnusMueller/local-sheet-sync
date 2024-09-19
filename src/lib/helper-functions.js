@@ -1,3 +1,15 @@
+export function sendMsgToFigma(type, parameters) {
+    parent.postMessage(
+        {
+            pluginMessage: {
+                type: type,
+                data: parameters,
+            },
+        },
+        '*'
+    );
+}
+
 export function saveRecentSearches(recentSearches) {
 	//TODO: is it possible to let a store update the plugindata on its own?
 	parent.postMessage(

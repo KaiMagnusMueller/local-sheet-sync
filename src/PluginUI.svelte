@@ -1,147 +1,147 @@
 <script>
 	import * as XLSX from 'xlsx';
+	import { sendMsgToFigma } from './lib/helper-functions';
 	import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
 	import FileInput from './components/FileInput.svelte';
 	import TabBar from './components/TabBar/index.svelte';
 	import { Button, IconSpinner, Icon } from 'figma-plugin-ds-svelte';
 	import CellContent from './components/Table/CellContent.svelte';
+	import DataDisplay from './components/DataDisplay.svelte';
+
+	let isApplyingData = false;
+	let currentSaveVersion = '0.1';
+
+	let currentUser = {
+		id: '',
+		name: '',
+	};
 
 	// Variables to store workbook and sheet data
-	let workbook;
 	let sheetNames;
-	let worksheet;
-	let activeSheet;
-	let activeSheetName;
+
+	let currentFile = {
+		fileName: '',
+		date: '',
+		data: {},
+		activeSheet: 0,
+		createdByUser: {
+			id: '',
+			name: '',
+		},
+		saveVersion: '',
+	};
+
+	let activityHistory = [];
+	let mostRecentHistoryItem;
+
+	// function initializeDataSheet(fileName) {}
+
+	// class DataSheet {
+	// 	constructor(name, date, data) {
+	// 		this.name = name;
+	// 		this.date = date;
+	// 		this.workbook = data;
+	// 		this.activeSheet = this.workbook.SheetNames[0];
+	// 	}
+
+	// 	set activeSheet(index) {
+	// 		this.activeSheet = workbook.SheetNames[index];
+	// 	}
+
+	// 	get activeSheet() {
+	// 		return this.activeSheet;
+	// 	}
+	// }
 
 	window.addEventListener('message', (event) => {
-		if (event.data.pluginMessage.type == 'restore-sheet') {
-			if (event.data.pluginMessage.data) {
+		switch (event.data.pluginMessage.type) {
+			case 'restore-sheet':
+				if (!event.data.pluginMessage.data) return console.log('no data to restore found');
+
 				// Read the workbook from the file data
-
 				const data = decompressFromUTF16(event.data.pluginMessage.data);
-				workbook = JSON.parse(data);
-
-				console.log(workbook);
-
-				// Get sheet names and the first sheet
-				sheetNames = workbook.SheetNames;
-
-				const firstSheetName = workbook.SheetNames[0];
-
-				// Get the first worksheet and convert it to JSON
-				worksheet = workbook.Sheets[firstSheetName];
-
-				// Select the first sheet by default
-				selectSheet(0);
-			} else {
-				console.log('no data to restore found');
-			}
-		}
-		if (event.data.pluginMessage.type == 'done-apply-data') {
-			isApplyingData = false;
-			console.timeEnd('Elapsed time');
+				currentFile = JSON.parse(data);
+				console.log(currentFile);
+				sheetNames = currentFile.data.map((sheet) => sheet.name);
+				break;
+			case 'done-apply-data':
+				isApplyingData = false;
+				console.timeEnd('Elapsed time');
+				break;
+			case 'current-user':
+				currentUser = event.data.pluginMessage.data;
+				break;
+			case 'announce-activity-history':
+				if (!event.data.pluginMessage.data) return;
+				activityHistory = JSON.parse(event.data.pluginMessage.data);
+				mostRecentHistoryItem = activityHistory[activityHistory.length - 1];
+				break;
+			default:
+				break;
 		}
 	});
 
 	// Function to handle file input change event
 	function handleFileInput(e) {
-		console.log(e);
-
 		const file = e.target.files[0];
 		if (!file) return;
 
 		const reader = new FileReader();
+		reader.readAsArrayBuffer(file); // Read the file as an ArrayBuffer
 		reader.onload = (e) => {
 			const data = new Uint8Array(e.target.result);
 
 			// Read the workbook from the file data
-			workbook = XLSX.read(data, { type: 'array' });
+			// For now use only default formatting in the sheet_to_json method
+			// In the future, consider parsing dates and currencies
+			const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+			console.log(workbook);
+			const sheets = workbook.SheetNames.map((sheetName, i) => {
+				const sheet = workbook.Sheets[sheetName];
+				return formatAndCleanSheet(sheet, sheetName, i);
+			});
 
-			saveSheet(workbook);
+			currentFile = {
+				fileName: file.name,
+				date: new Date().toISOString(),
+				data: sheets,
+				activeSheet: 0,
+				createdByUser: currentUser,
+				currentSaveVersion: currentSaveVersion,
+			};
 
-			// Get sheet names and the first sheet
-			sheetNames = workbook.SheetNames;
-			const firstSheetName = workbook.SheetNames[0];
+			sheetNames = currentFile.data.map((sheet) => sheet.name);
 
-			// Get the first worksheet and convert it to JSON
-			worksheet = workbook.Sheets[firstSheetName];
-
-			// Select the first sheet by default
-			selectSheet(0);
+			saveFile(currentFile);
 		};
-		reader.readAsArrayBuffer(file); // Read the file as an ArrayBuffer
 	}
 
-	async function saveSheet(data) {
+	async function saveFile(data) {
 		const dataToSave = compressToUTF16(JSON.stringify(data));
-
-		parent.postMessage(
-			{
-				pluginMessage: {
-					type: 'save-sheet',
-					data: dataToSave,
-				},
-			},
-			'*',
-		);
-	}
-
-	// Function to select a sheet by index
-	function selectSheet(index) {
-		if (!workbook) return;
-
-		const sheet = workbook.Sheets[sheetNames[index]];
-		activeSheetName = sheetNames[index];
-
-		return (activeSheet = formatAndCleanSheet(sheet, index));
+		sendMsgToFigma('save-sheet', dataToSave);
 	}
 
 	function handleAssignLabel(e) {
-		parent.postMessage(
-			{
-				pluginMessage: {
-					type: 'assign-layer-name',
-					data: {
-						sheet: e.detail.sheet,
-						column: e.detail.column,
-						row: e.detail.row,
-					},
-				},
-			},
-			'*',
-		);
+		sendMsgToFigma('assign-layer-name', {
+			sheet: e.detail.sheet,
+			column: e.detail.column,
+			row: e.detail.row,
+		});
 	}
-
-	let isApplyingData = false;
 
 	function handleApplyData(e) {
 		isApplyingData = true;
-
-		const sheetNames = Object.keys(workbook.Sheets);
-
-		const allSheets = sheetNames.map((sheetName, i) => {
-			const sheet = workbook.Sheets[sheetName];
-			return formatAndCleanSheet(sheet, i);
-		});
-
-		parent.postMessage(
-			{
-				pluginMessage: {
-					type: 'apply-data',
-					data: allSheets,
-				},
-			},
-			'*',
-		);
+		sendMsgToFigma('apply-data', currentFile);
 		console.time('Elapsed time');
 	}
 
-	function formatAndCleanSheet(sheet, index) {
+	function formatAndCleanSheet(sheet, sheetName, index) {
 		let _sheet = XLSX.utils.sheet_to_json(sheet, {
 			header: 1,
 			defval: '',
 			blankrows: false,
 			skipHidden: true,
+			raw: false,
 		});
 
 		//Search for empty columns in header row
@@ -171,7 +171,7 @@
 		}
 
 		return {
-			name: sheetNames[index],
+			name: sheetName,
 			header: _sheet[0],
 			data: _sheet.slice(1),
 		};
@@ -181,22 +181,22 @@
 <div class="wrapper">
 	<!-- Display the selected sheet data in a table -->
 	<main>
-		{#if activeSheet}
+		{#if !!currentFile.fileName}
 			<header>
 				<TabBar
 					items={sheetNames}
-					activeItem={activeSheetName}
-					on:click={(e) => selectSheet(e.detail.index)}
+					activeIndex={currentFile.activeSheet}
+					on:click={(e) => (currentFile.activeSheet = e.detail.index)}
 					on:buttonClick={(e) => handleAssignLabel(e)} />
 			</header>
 
 			<div class="table-wrapper">
 				<table>
-					{#if activeSheet.header}
+					{#if currentFile.data[currentFile.activeSheet].header}
 						<thead>
 							<tr>
-								{#each activeSheet.header as colHeaderCell}
-									<th>
+								{#each currentFile.data[currentFile.activeSheet].header as colHeaderCell}
+									<th title={colHeaderCell}>
 										<CellContent
 											content={colHeaderCell}
 											header
@@ -210,7 +210,7 @@
 						</thead>
 					{/if}
 					<tbody>
-						{#each activeSheet.data as row, index}
+						{#each currentFile.data[currentFile.activeSheet].data as row, index}
 							<tr>
 								{#each row as cell, cellIndex}
 									<td title={cell}>
@@ -231,10 +231,23 @@
 	</main>
 	<footer>
 		<!-- File input to upload Excel file -->
-		<FileInput on:change={handleFileInput} />
+		<FileInput
+			on:change={handleFileInput}
+			fileName={currentFile.fileName}
+			lastUpdatedTime={currentFile.date} />
 		<div class="horizontal-group">
 			{#if isApplyingData}
 				<Icon iconName={IconSpinner} color="blue" spin />
+			{/if}
+			{#if mostRecentHistoryItem}
+				<DataDisplay label={'Last updated'}
+					>{new Date(mostRecentHistoryItem.timestamp).toLocaleString([], {
+						day: 'numeric',
+						month: 'numeric',
+						year: 'numeric',
+						hour: '2-digit',
+						minute: '2-digit',
+					})}</DataDisplay>
 			{/if}
 			<Button on:click={(e) => handleApplyData(e)} disabled={isApplyingData}
 				>Apply data</Button>
@@ -243,10 +256,10 @@
 </div>
 
 <style>
-	:global(*) {
+	:global(menu, ul, li) {
 		margin: 0;
 		padding: 0;
-		color: var(--figma-color-text);
+		list-style: none;
 	}
 
 	.wrapper {
@@ -266,7 +279,7 @@
 
 	header {
 		padding-block-start: 0.5rem;
-		margin-block-end: -0.5rem;
+		margin-block-end: -0.75rem;
 	}
 
 	footer {
@@ -280,6 +293,7 @@
 	.table-wrapper {
 		padding-inline: 0.5rem;
 		overflow: scroll;
+		flex-grow: 1;
 	}
 
 	table {
@@ -292,6 +306,7 @@
 	td {
 		border: 1px solid var(--figma-color-border);
 		overflow: hidden;
+		min-width: 60px;
 	}
 
 	thead {
@@ -303,43 +318,6 @@
 
 	th:first-of-type {
 		border-top-left-radius: var(--border-radius-large);
-	}
-
-	menu {
-		display: flex;
-		flex-direction: row;
-		gap: 1rem;
-		overflow-x: scroll;
-		position: sticky;
-		bottom: 0;
-		background-color: var(--figma-color-bg);
-		border-block-start: 1px solid var(--figma-color-border);
-
-		padding: 0.5rem;
-		padding-block-end: 0.8rem;
-		flex-shrink: 0;
-	}
-
-	ul {
-		list-style: none;
-		display: contents;
-		/* padding: 0.5rem;
-		border: 1px solid #000; */
-	}
-
-	button {
-		display: flex;
-		align-items: center;
-		padding: 0.25rem;
-		background-color: var(--figma-color-bg-secondary);
-	}
-
-	button.active {
-		background-color: var(--figma-color-highlight);
-	}
-
-	button span {
-		pointer-events: none;
 	}
 
 	:global(.line-clamp-3) {
@@ -363,7 +341,7 @@
 		overflow: hidden;
 	}
 
-	.pointer-none {
+	:global(.pointer-none) {
 		pointer-events: none;
 	}
 

@@ -33,6 +33,11 @@
 
 	.content-wrapper.header span {
 		font-weight: var(--font-weight-bold);
+		text-align: left;
+	}
+
+	span {
+		/* word-break: break-all; */
 	}
 
 	.button-container {
@@ -50,10 +55,4 @@
 	.content-wrapper:hover .button-container {
 		display: block;
 	}
-
-	/* th span,
-	td span {
-		min-width: min-content;
-		max-width: 200px;
-	} */
 </style>

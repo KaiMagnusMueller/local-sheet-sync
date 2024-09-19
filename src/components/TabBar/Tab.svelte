@@ -1,15 +1,16 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
 
-	import { Icon, IconLinkConnected, IconButton } from 'figma-plugin-ds-svelte';
+	import { IconLinkConnected, IconButton } from 'figma-plugin-ds-svelte';
 
-	export let activeItem = null;
+	export let activeIndex;
 	export let item = 'Tabname';
+	export let index;
 
 	let dispatch = createEventDispatcher();
 </script>
 
-<li class:active={item === activeItem}>
+<li class:active={index === activeIndex}>
 	<button on:click|self>
 		<span data-label={item}>
 			{item}
@@ -71,9 +72,13 @@
 	}
 
 	.active {
-		background-color: #f0f0f0;
+		background-color: var(--figma-color-bg-selected);
 		position: sticky;
 		left: 0;
 		z-index: 1;
+	}
+
+	li.active:hover {
+		background-color: var(--figma-color-bg-selected-hover);
 	}
 </style>

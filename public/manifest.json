@@ -10,8 +10,9 @@
       "figma"
     ],
     "ui": "index.html",
+    "permissions": ["currentuser"],
 	"networkAccess": {
-		"allowedDomains": ["https://*.cloudinary.com"],
+		"allowedDomains": ["*"],
 		"reasoning": "Tree Navigator loads tutorial images from Cloudinary"
 	}
   }
