@@ -7,7 +7,7 @@ import terser from '@rollup/plugin-terser';
 import svg from 'rollup-plugin-svg';
 import typescript from '@rollup/plugin-typescript';
 import { mdsvex } from 'mdsvex';
-
+import dotenv from "rollup-plugin-dotenv"
 /* Post CSS */
 import postcss from 'rollup-plugin-postcss';
 import cssnano from 'cssnano';
@@ -26,6 +26,7 @@ export default [
 			file: 'src/build/bundle.js',
 		},
 		plugins: [
+            dotenv(),
 			svelte({
 				// enable run-time checks when not in production
 				dev: !production,

@@ -1,12 +1,12 @@
 <script>
+	import PocketBase, { BaseAuthStore } from 'pocketbase';
 	import * as XLSX from 'xlsx';
-	import { sendMsgToFigma } from './lib/helper-functions';
 	import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
-	import FileInput from './components/FileInput.svelte';
-	import TabBar from './components/TabBar/index.svelte';
-	import { Button, IconSpinner, Icon } from 'figma-plugin-ds-svelte';
-	import CellContent from './components/Table/CellContent.svelte';
-	import DataDisplay from './components/DataDisplay.svelte';
+	import { sendMsgToFigma } from './lib/helper-functions';
+
+	import DataSyncView from './components/Views/DataSyncView.svelte';
+	import ProfileView from './components/Views/ProfileView.svelte';
+	import MainSideNav from './components/MainSideNav/index.svelte';
 
 	let isApplyingData = false;
 	let currentSaveVersion = '0.1';
@@ -34,24 +34,86 @@
 	let activityHistory = [];
 	let mostRecentHistoryItem;
 
-	// function initializeDataSheet(fileName) {}
+	/**
+	 * The default token store for browsers with auto fallback
+	 * to runtime/memory if local storage is undefined (eg. in node env).
+	 */
+	export class FigmaAuthStore extends BaseAuthStore {
+		constructor(storageKey = 'pocketbase_auth') {
+			super();
 
-	// class DataSheet {
-	// 	constructor(name, date, data) {
-	// 		this.name = name;
-	// 		this.date = date;
-	// 		this.workbook = data;
-	// 		this.activeSheet = this.workbook.SheetNames[0];
-	// 	}
+			this.storageFallback = {};
+			this.storageKey = storageKey;
 
-	// 	set activeSheet(index) {
-	// 		this.activeSheet = workbook.SheetNames[index];
-	// 	}
+			// this._bindStorageEvent();
+		}
 
-	// 	get activeSheet() {
-	// 		return this.activeSheet;
-	// 	}
-	// }
+		get token() {
+			const data = this._storageGet(this.storageKey) || {};
+			return data.token || '';
+		}
+
+		get model() {
+			const data = this._storageGet(this.storageKey) || {};
+			return data.model || null;
+		}
+
+		save(token, model) {
+			this._storageSet(this.storageKey, {
+				token: token,
+				model: model,
+			});
+
+			user = model;
+
+			handleAuthChange();
+
+			super.save(token, model);
+		}
+
+		clear() {
+			this._storageRemove(this.storageKey);
+
+			user = null;
+			handleAuthChange();
+
+			super.clear();
+		}
+
+		_storageGet(key) {
+			const rawValue = pbAuthToken || '';
+			try {
+				return JSON.parse(rawValue);
+			} catch (e) {
+				return rawValue;
+			}
+		}
+
+		_storageSet(key, value) {
+			let normalizedVal = value;
+
+			if (typeof value !== 'string') {
+				normalizedVal = JSON.stringify(value);
+			}
+
+			sendMsgToFigma('set-pb-auth-token', { key: key, value: normalizedVal });
+			pbAuthToken = value;
+		}
+
+		_storageRemove(key) {
+			sendMsgToFigma('set-pb-auth-token', { key: key, value: '' });
+			pbAuthToken = null;
+		}
+
+		// _bindStorageEvent() {
+		// }
+	}
+
+	let pbAuthToken;
+
+	const pb = new PocketBase(process.env.PB_BACKEND_URL, new FigmaAuthStore());
+
+	let user;
 
 	window.addEventListener('message', (event) => {
 		switch (event.data.pluginMessage.type) {
@@ -76,6 +138,16 @@
 				activityHistory = JSON.parse(event.data.pluginMessage.data);
 				mostRecentHistoryItem = activityHistory[activityHistory.length - 1];
 				break;
+			case 'get-pb-auth-token':
+				if (!event.data.pluginMessage.data) return;
+				pbAuthToken = JSON.parse(event.data.pluginMessage.data);
+				try {
+					// get an up-to-date auth store state by verifying and refreshing the loaded auth model (if any)
+					pb.authStore.isValid && pb.collection('users').authRefresh();
+				} catch (_) {
+					// clear the auth store on failed refresh
+					pb.authStore.clear();
+				}
 			default:
 				break;
 		}
@@ -83,7 +155,8 @@
 
 	// Function to handle file input change event
 	function handleFileInput(e) {
-		const file = e.target.files[0];
+		// Files are sent as an array in the event detail
+		const file = e.detail[0];
 		if (!file) return;
 
 		const reader = new FileReader();
@@ -119,14 +192,6 @@
 	async function saveFile(data) {
 		const dataToSave = compressToUTF16(JSON.stringify(data));
 		sendMsgToFigma('save-sheet', dataToSave);
-	}
-
-	function handleAssignLabel(e) {
-		sendMsgToFigma('assign-layer-name', {
-			sheet: e.detail.sheet,
-			column: e.detail.column,
-			row: e.detail.row,
-		});
 	}
 
 	function handleApplyData(e) {
@@ -176,83 +241,72 @@
 			data: _sheet.slice(1),
 		};
 	}
+
+	let mainSideNavItems = [
+		{ title: 'Planning', icon: '🗂️', active: true, group: 'TOP' },
+		{ title: 'Data Sync', icon: '🔄', active: false, group: 'TOP' },
+		{
+			title: 'Profile',
+			icon: '🔒',
+			active: false,
+			group: 'BOTTOM',
+		},
+	];
+	let currentActiveItem;
+	let previousActiveItem;
+
+	function handleAuthChange(e) {
+		const profileIndex = mainSideNavItems.findIndex((item) => item.title === 'Profile');
+
+		console.log(currentActiveItem);
+
+		if (user) {
+			mainSideNavItems[profileIndex] = {
+				...mainSideNavItems[profileIndex],
+				name: user.name,
+				icon: undefined,
+				src: `${process.env.PB_BACKEND_URL}/api/files/${user.collectionId}/${user.id}/${user.avatar}?token=`,
+			};
+		} else {
+			mainSideNavItems[profileIndex] = {
+				...mainSideNavItems[profileIndex],
+				icon: '🔒',
+				name: undefined,
+				src: undefined,
+			};
+		}
+
+		mainSideNavItems = mainSideNavItems;
+	}
 </script>
+
+<MainSideNav
+	bind:items={mainSideNavItems}
+	bind:currentActiveItem
+	bind:previousActiveItem
+	on:selectMainNavItem />
 
 <div class="wrapper">
 	<!-- Display the selected sheet data in a table -->
-	<main>
-		{#if !!currentFile.fileName}
-			<header>
-				<TabBar
-					items={sheetNames}
-					activeIndex={currentFile.activeSheet}
-					on:click={(e) => (currentFile.activeSheet = e.detail.index)}
-					on:buttonClick={(e) => handleAssignLabel(e)} />
-			</header>
-
-			<div class="table-wrapper">
-				<table>
-					{#if currentFile.data[currentFile.activeSheet].header}
-						<thead>
-							<tr>
-								{#each currentFile.data[currentFile.activeSheet].header as colHeaderCell}
-									<th title={colHeaderCell}>
-										<CellContent
-											content={colHeaderCell}
-											header
-											on:buttonClick={() =>
-												handleAssignLabel({
-													detail: { column: colHeaderCell },
-												})} />
-									</th>
-								{/each}
-							</tr>
-						</thead>
-					{/if}
-					<tbody>
-						{#each currentFile.data[currentFile.activeSheet].data as row, index}
-							<tr>
-								{#each row as cell, cellIndex}
-									<td title={cell}>
-										<CellContent
-											content={cell}
-											on:buttonClick={() =>
-												handleAssignLabel({
-													detail: { row: index },
-												})} />
-									</td>
-								{/each}
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
-	</main>
-	<footer>
-		<!-- File input to upload Excel file -->
-		<FileInput
-			on:change={handleFileInput}
-			fileName={currentFile.fileName}
-			lastUpdatedTime={currentFile.date} />
-		<div class="horizontal-group">
-			{#if isApplyingData}
-				<Icon iconName={IconSpinner} color="blue" spin />
+	{#if !!currentActiveItem}
+		<main>
+			{#if currentActiveItem.title === 'Profile'}
+				<ProfileView {pb} bind:user on:authChange={(e) => handleAuthChange(e)} />
+			{:else if currentActiveItem.title === 'Planning'}
+				<p>Planning view</p>
+			{:else if currentActiveItem.title === 'Data Sync'}
+				<DataSyncView
+					{currentFile}
+					{isApplyingData}
+					{sheetNames}
+					{mostRecentHistoryItem}
+					on:file-input={(e) => handleFileInput(e)}
+					on:select-sheet={(e) => (currentFile.activeSheet = e.detail.index)}
+					}
+					on:apply-data={(e) => handleApplyData()}></DataSyncView>
 			{/if}
-			{#if mostRecentHistoryItem}
-				<DataDisplay label={'Last updated'}
-					>{new Date(mostRecentHistoryItem.timestamp).toLocaleString([], {
-						day: 'numeric',
-						month: 'numeric',
-						year: 'numeric',
-						hour: '2-digit',
-						minute: '2-digit',
-					})}</DataDisplay>
-			{/if}
-			<Button on:click={(e) => handleApplyData(e)} disabled={isApplyingData}
-				>Apply data</Button>
-		</div>
-	</footer>
+		</main>
+	{/if}
 </div>
 
 <style>
@@ -263,61 +317,18 @@
 	}
 
 	.wrapper {
-		width: 100%;
 		display: flex;
 		flex-direction: column;
-		height: 100%;
+		overflow: auto;
+		width: 100%;
 	}
 
 	main {
+		overflow: auto;
+		flex-grow: 1;
+		height: 100%;
 		display: flex;
 		flex-direction: column;
-		overflow: scroll;
-		flex-grow: 1;
-		gap: 0.5rem;
-	}
-
-	header {
-		padding-block-start: 0.5rem;
-		margin-block-end: -0.75rem;
-	}
-
-	footer {
-		border-block-start: 1px solid var(--figma-color-border);
-		padding-block: 0.5rem;
-		display: flex;
-		padding-inline: 0.5rem;
-		justify-content: space-between;
-	}
-
-	.table-wrapper {
-		padding-inline: 0.5rem;
-		overflow: scroll;
-		flex-grow: 1;
-	}
-
-	table {
-		border-collapse: collapse;
-		font-size: var(--font-size-xsmall);
-		margin-block-end: 0.5rem;
-	}
-
-	th,
-	td {
-		border: 1px solid var(--figma-color-border);
-		overflow: hidden;
-		min-width: 60px;
-	}
-
-	thead {
-		/* position: sticky;
-		top: 0; */
-		background-color: var(--figma-color-bg);
-		border-block-start: 1px solid var(--figma-color-border);
-	}
-
-	th:first-of-type {
-		border-top-left-radius: var(--border-radius-large);
 	}
 
 	:global(.line-clamp-3) {
