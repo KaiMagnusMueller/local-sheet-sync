@@ -1,12 +1,10 @@
 <script>
-	import PBAuthTest from './PBAuthTest.svelte';
+	import DataSyncView from './components/Views/DataSyncView.svelte';
+	import ProfileView from './components/Views/ProfileView.svelte';
 
 	import * as XLSX from 'xlsx';
 	import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
-	import FileInput from './components/FileInput.svelte';
-	import TabBar from './components/TabBar/index.svelte';
-	import { Button, IconSpinner, Icon } from 'figma-plugin-ds-svelte';
-	import CellContent from './components/Table/CellContent.svelte';
+
 	import MainSideNav from './components/MainSideNav/index.svelte';
 
 	// Variables to store workbook and sheet data
@@ -16,7 +14,104 @@
 	let activeSheet;
 	let activeSheetName;
 
+	import PocketBase, { BaseAuthStore } from 'pocketbase';
+	import { sendMsgToFigma } from './lib/helper-functions';
+
+	/**
+	 * The default token store for browsers with auto fallback
+	 * to runtime/memory if local storage is undefined (eg. in node env).
+	 */
+	export class FigmaAuthStore extends BaseAuthStore {
+		constructor(storageKey = 'pocketbase_auth') {
+			super();
+
+			this.storageFallback = {};
+			this.storageKey = storageKey;
+
+			// this._bindStorageEvent();
+		}
+
+		get token() {
+			const data = this._storageGet(this.storageKey) || {};
+			return data.token || '';
+		}
+
+		get model() {
+			const data = this._storageGet(this.storageKey) || {};
+			return data.model || null;
+		}
+
+		save(token, model) {
+			this._storageSet(this.storageKey, {
+				token: token,
+				model: model,
+			});
+
+			user = model;
+
+			handleAuthChange();
+
+			super.save(token, model);
+		}
+
+		clear() {
+			this._storageRemove(this.storageKey);
+
+			user = null;
+			handleAuthChange();
+
+			super.clear();
+		}
+
+		_storageGet(key) {
+			const rawValue = pbAuthToken || '';
+			try {
+				return JSON.parse(rawValue);
+			} catch (e) {
+				return rawValue;
+			}
+		}
+
+		_storageSet(key, value) {
+			let normalizedVal = value;
+
+			if (typeof value !== 'string') {
+				normalizedVal = JSON.stringify(value);
+			}
+
+			sendMsgToFigma('set-pb-auth-token', { key: key, value: normalizedVal });
+			pbAuthToken = value;
+		}
+
+		_storageRemove(key) {
+			sendMsgToFigma('set-pb-auth-token', { key: key, value: '' });
+			pbAuthToken = null;
+		}
+
+		// _bindStorageEvent() {
+		// }
+	}
+
+	let pbAuthToken;
+
+	const pb = new PocketBase(process.env.PB_BACKEND_URL, new FigmaAuthStore());
+
+	let user;
+
 	window.addEventListener('message', (event) => {
+		if (event.data.pluginMessage.type == 'get-pb-auth-token') {
+			if (!event.data.pluginMessage.data) return;
+
+			pbAuthToken = JSON.parse(event.data.pluginMessage.data);
+
+			try {
+				// get an up-to-date auth store state by verifying and refreshing the loaded auth model (if any)
+				pb.authStore.isValid && pb.collection('users').authRefresh();
+			} catch (_) {
+				// clear the auth store on failed refresh
+				pb.authStore.clear();
+			}
+		}
 		if (event.data.pluginMessage.type == 'restore-sheet') {
 			if (event.data.pluginMessage.data) {
 				// Read the workbook from the file data
@@ -48,9 +143,8 @@
 
 	// Function to handle file input change event
 	function handleFileInput(e) {
-		console.log(e);
-
-		const file = e.target.files[0];
+		// Files are sent as an array in the event detail
+		const file = e.detail[0];
 		if (!file) return;
 
 		const reader = new FileReader();
@@ -97,22 +191,6 @@
 		activeSheetName = sheetNames[index];
 
 		return (activeSheet = formatAndCleanSheet(sheet, index));
-	}
-
-	function handleAssignLabel(e) {
-		parent.postMessage(
-			{
-				pluginMessage: {
-					type: 'assign-layer-name',
-					data: {
-						sheet: e.detail.sheet,
-						column: e.detail.column,
-						row: e.detail.row,
-					},
-				},
-			},
-			'*',
-		);
 	}
 
 	let isApplyingData = false;
@@ -179,80 +257,73 @@
 			data: _sheet.slice(1),
 		};
 	}
+
+	let mainSideNavItems = [
+		{ title: 'Planning', icon: '🗂️', active: true, group: 'TOP' },
+		{ title: 'Data Sync', icon: '🔄', active: false, group: 'TOP' },
+		{
+			title: 'Profile',
+			icon: '🔒',
+			active: false,
+			group: 'BOTTOM',
+		},
+	];
+	let currentActiveItem;
+	let previousActiveItem;
+
+	function handleAuthChange(e) {
+		const profileIndex = mainSideNavItems.findIndex((item) => item.title === 'Profile');
+
+		console.log(currentActiveItem);
+
+		if (user) {
+			mainSideNavItems[profileIndex] = {
+				...mainSideNavItems[profileIndex],
+				name: user.name,
+				icon: undefined,
+				src: `${process.env.PB_BACKEND_URL}/api/files/${user.collectionId}/${user.id}/${user.avatar}?token=`,
+			};
+		} else {
+			mainSideNavItems[profileIndex] = {
+				...mainSideNavItems[profileIndex],
+				icon: '🔒',
+				name: undefined,
+				src: undefined,
+			};
+		}
+
+		console.log(mainSideNavItems);
+
+		mainSideNavItems = mainSideNavItems;
+	}
 </script>
 
 <MainSideNav
-	items={[
-		{ title: 'Home', icon: '🏠', active: true },
-		{ title: 'Settings', icon: '⚙️' },
-		{ title: 'Help', icon: '❓' },
-	]}
-	profile={{ imgsrc: 'https://via.placeholder.com/150', name: 'John Doe' }} />
+	bind:items={mainSideNavItems}
+	bind:currentActiveItem
+	bind:previousActiveItem
+	on:selectMainNavItem />
 
 <div class="wrapper">
 	<!-- Display the selected sheet data in a table -->
-	<main>
-		<PBAuthTest></PBAuthTest>
-
-		{#if activeSheet}
-			<header>
-				<TabBar
-					items={sheetNames}
-					activeItem={activeSheetName}
-					on:click={(e) => selectSheet(e.detail.index)}
-					on:buttonClick={(e) => handleAssignLabel(e)} />
-			</header>
-
-			<div class="table-wrapper">
-				<table>
-					{#if activeSheet.header}
-						<thead>
-							<tr>
-								{#each activeSheet.header as colHeaderCell}
-									<th>
-										<CellContent
-											content={colHeaderCell}
-											header
-											on:buttonClick={() =>
-												handleAssignLabel({
-													detail: { column: colHeaderCell },
-												})} />
-									</th>
-								{/each}
-							</tr>
-						</thead>
-					{/if}
-					<tbody>
-						{#each activeSheet.data as row, index}
-							<tr>
-								{#each row as cell, cellIndex}
-									<td title={cell}>
-										<CellContent
-											content={cell}
-											on:buttonClick={() =>
-												handleAssignLabel({
-													detail: { row: index },
-												})} />
-									</td>
-								{/each}
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		{/if}
-	</main>
-	<footer>
-		<!-- File input to upload Excel file -->
-		<FileInput on:change={handleFileInput} />
-		<div class="horizontal-group">
-			{#if isApplyingData}
-				<Icon iconName={IconSpinner} color="blue" spin />
+	{#if !!currentActiveItem}
+		<main>
+			{#if currentActiveItem.title === 'Profile'}
+				<ProfileView {pb} bind:user on:authChange={(e) => handleAuthChange(e)} />
+			{:else if currentActiveItem.title === 'Planning'}
+				<p>Planning view</p>
+			{:else if currentActiveItem.title === 'Data Sync'}
+				<DataSyncView
+					{activeSheet}
+					{isApplyingData}
+					{sheetNames}
+					{activeSheetName}
+					on:file-input={(e) => handleFileInput(e)}
+					on:select-sheet={(e) => selectSheet(e.detail.index)}
+					on:apply-data={(e) => handleApplyData}></DataSyncView>
 			{/if}
-			<Button on:click={(e) => handleApplyData(e)} disabled={isApplyingData}
-				>Apply data</Button>
-		</div>
-	</footer>
+		</main>
+	{/if}
 </div>
 
 <style>
@@ -266,12 +337,15 @@
 		display: flex;
 		flex-direction: column;
 		overflow: auto;
+		width: 100%;
 	}
 
 	main {
 		overflow: auto;
 		flex-grow: 1;
-		gap: 0.5rem;
+		height: 100%;
+		display: flex;
+		flex-direction: column;
 	}
 
 	header {
@@ -285,6 +359,9 @@
 		display: flex;
 		padding-inline: 0.5rem;
 		justify-content: space-between;
+		position: sticky;
+		bottom: 0;
+		background-color: var(--figma-color-bg);
 	}
 
 	.table-wrapper {

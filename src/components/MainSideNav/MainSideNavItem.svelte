@@ -1,16 +1,20 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
-
 	export let item;
-
-	let dispatch = createEventDispatcher();
 </script>
 
-<li class="nav-item">
-	<button on:click|self class:active={item.active} title={item.title}>
-		<span data-label={item.title}>
-			{item.icon}
-		</span>
+<li>
+	<button
+		on:click|self
+		class:active={item.active}
+		title={item.title}
+		class:profile-img={item.src}>
+		{#if item.icon}
+			<span data-label={item.title}>
+				{item.icon}
+			</span>
+		{:else}
+			<img src={item.src} alt={item.name} />
+		{/if}
 	</button>
 </li>
 
@@ -35,12 +39,6 @@
 		width: 2rem;
 		aspect-ratio: 1;
 	}
-	span {
-		pointer-events: none;
-	}
-
-	.nav-item {
-	}
 
 	button.active {
 		border-color: var(--figma-color-border-brand-strong);
@@ -48,5 +46,23 @@
 
 	button:hover {
 		background-color: var(--figma-color-bg-hover);
+	}
+
+	.profile-img {
+		border-radius: 9999px;
+		background-color: var(--figma-color-bg-secondary);
+		overflow: hidden;
+		border: 2px solid var(--figma-color-border-brand-strong);
+		padding: 0;
+	}
+
+	span,
+	img {
+		pointer-events: none;
+	}
+
+	img {
+		width: 100%;
+		height: 100%;
 	}
 </style>

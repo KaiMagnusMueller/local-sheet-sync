@@ -2,15 +2,19 @@
 	import { createEventDispatcher } from 'svelte';
 	import MainSideNavItem from './MainSideNavItem.svelte';
 	export let items = [];
-	export let profile;
+	export let currentActiveItem = items.filter((elem) => elem.active)[0];
+	export let previousActiveItem;
 
 	const dispatch = createEventDispatcher();
 
-	function handleItemClick(index) {
-		dispatch('click', {
-			index,
-			item: items[index],
+	function handleItemClick(item) {
+		dispatch('selectMainNavItem', {
+			item: item,
 		});
+
+		const index = items.findIndex((elem) => elem === item);
+		previousActiveItem = currentActiveItem;
+		currentActiveItem = item;
 
 		items = items.map((item, i) => {
 			if (i === index) {
@@ -24,14 +28,14 @@
 
 <nav>
 	<ul>
-		{#each items as item, index}
-			<MainSideNavItem {item} on:click={() => handleItemClick(index)} />
+		{#each items.filter((elem) => elem.group === 'TOP') as item, index}
+			<MainSideNavItem {item} on:click={() => handleItemClick(item)} />
 		{/each}
 	</ul>
 	<ul>
-		<li class="profile-img" title="Profile Img">
-			<img src={profile.imgsrc} alt={profile.name} />
-		</li>
+		{#each items.filter((elem) => elem.group === 'BOTTOM') as item, index}
+			<MainSideNavItem {item} on:click={() => handleItemClick(item)} />
+		{/each}
 	</ul>
 </nav>
 
@@ -53,41 +57,5 @@
 		list-style: none;
 		/* padding: 0.5rem;
 		border: 1px solid #000; */
-	}
-
-	li {
-		width: 2rem;
-		aspect-ratio: 1;
-		user-select: none;
-	}
-
-	.nav-item {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.25rem;
-		background-color: var(--figma-color-bg-secondary);
-		border-radius: 6px;
-		border: 2px solid transparent;
-	}
-
-	.nav-item.active {
-		border-color: var(--figma-color-border-brand-strong);
-	}
-
-	.nav-item:hover {
-		background-color: var(--figma-color-bg-hover);
-	}
-
-	.profile-img {
-		border-radius: 9999px;
-		background-color: var(--figma-color-bg-secondary);
-		overflow: hidden;
-		border: 2px solid var(--figma-color-border-brand-strong);
-	}
-
-	img {
-		width: 100%;
-		height: 100%;
 	}
 </style>
