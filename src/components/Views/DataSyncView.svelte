@@ -1,15 +1,15 @@
 <script>
 	import FileInput from '../FileInput.svelte';
+	import DataDisplay from '../DataDisplay.svelte';
 	import TabBar from '../TabBar/index.svelte';
 	import { Button, IconSpinner, Icon } from 'figma-plugin-ds-svelte';
 	import CellContent from '../Table/CellContent.svelte';
 
 	// Variables to store workbook and sheet data
 	export let sheetNames;
-	export let activeSheet;
-	export let activeSheetName;
+	export let currentFile;
 	export let isApplyingData = false;
-
+	export let mostRecentHistoryItem;
 	import { createEventDispatcher } from 'svelte';
 
 	const dispatch = createEventDispatcher();
@@ -31,22 +31,22 @@
 	}
 </script>
 
-{#if activeSheet}
+{#if !!currentFile.fileName}
 	<header>
 		<TabBar
 			items={sheetNames}
-			activeItem={activeSheetName}
+			activeIndex={currentFile.activeSheet}
 			on:click={(e) => dispatch('select-sheet', { index: e.detail.index })}
 			on:buttonClick={(e) => handleAssignLabel(e)} />
 	</header>
 
 	<div class="table-wrapper">
 		<table>
-			{#if activeSheet.header}
+			{#if currentFile.data[currentFile.activeSheet].header}
 				<thead>
 					<tr>
-						{#each activeSheet.header as colHeaderCell}
-							<th>
+						{#each currentFile.data[currentFile.activeSheet].header as colHeaderCell}
+							<th title={colHeaderCell}>
 								<CellContent
 									content={colHeaderCell}
 									header
@@ -60,7 +60,7 @@
 				</thead>
 			{/if}
 			<tbody>
-				{#each activeSheet.data as row, index}
+				{#each currentFile.data[currentFile.activeSheet].data as row, index}
 					<tr>
 						{#each row as cell, cellIndex}
 							<td title={cell}>
@@ -80,12 +80,26 @@
 {/if}
 <footer>
 	<!-- File input to upload Excel file -->
-	<FileInput on:change={(e) => dispatch('file-input', e.target.files)} />
+	<FileInput
+		on:change={(e) => dispatch('file-input', e.target.files)}
+		fileName={currentFile.fileName}
+		lastUpdatedTime={currentFile.date} />
 	<div class="horizontal-group">
 		{#if isApplyingData}
 			<Icon iconName={IconSpinner} color="blue" spin />
 		{/if}
-		<Button on:click={dispatch('apply-data')} disabled={isApplyingData}>Apply data</Button>
+		{#if mostRecentHistoryItem}
+			<DataDisplay label={'Last updated'}
+				>{new Date(mostRecentHistoryItem.timestamp).toLocaleString([], {
+					day: 'numeric',
+					month: 'numeric',
+					year: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit',
+				})}</DataDisplay>
+		{/if}
+		<Button on:click={() => dispatch('apply-data')} disabled={isApplyingData}
+			>Apply data</Button>
 	</div>
 </footer>
 

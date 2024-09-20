@@ -3,7 +3,7 @@
 	import Tab from './Tab.svelte';
 
 	export let items = [];
-	export let activeItem = null;
+	export let activeIndex;
 
 	const dispatch = createEventDispatcher();
 
@@ -25,7 +25,8 @@
 	{#each items as item, index}
 		<Tab
 			{item}
-			{activeItem}
+			{activeIndex}
+			{index}
 			on:click={() => handleTabClick(index)}
 			on:buttonClick={(e) => handleButtonClick(index)} />
 	{/each}
@@ -42,6 +43,6 @@
 		bottom: 0;
 		overflow-x: scroll;
 		flex-shrink: 0;
-		padding-block-end: 0.5rem;
+		padding-block-end: 0.75rem;
 	}
 </style>

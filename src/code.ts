@@ -13,6 +13,8 @@ let sheet = documentNode.getPluginData('sheet');
 // TODO: Add settings
 let settings = documentNode.getPluginData('settings');
 
+let activityHistory = documentNode.getPluginData('activity-history');
+
 // ---------------------------------
 // ON STARTUP
 // ---------------------------------
@@ -41,6 +43,23 @@ try {
     console.error("Error retrieving pocketbase_auth:", error);
 }
 
+const currentUser = {
+    id: figma.currentUser.id,
+    name: figma.currentUser.name
+}
+
+figma.ui.postMessage({
+    type: 'current-user',
+    data: currentUser,
+});
+
+if (activityHistory) {
+    announceActivityHistory(activityHistory)
+} else {
+    activityHistory = "[]";
+}
+
+let parsedActivityHistory = JSON.parse(activityHistory);
 
 
 // ---------------------------------
@@ -151,7 +170,7 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[], data
     groupedNodes.forEach(group => {
         group.forEach(rootNode => {
             rootNode.childNodes.forEach((node, i) => {
-                applyData(node, i, node.labels, dataToApply);
+                applyData(node, i, node.labels, dataToApply.data);
                 updatedNodes++;
             });
         });
@@ -159,8 +178,21 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[], data
 
     console.log("Applied data to", updatedNodes, updatedNodes !== 1 ? "elements" : "element");
 
+    const historyItem: HistoryItem = {
+        fileName: dataToApply.fileName,
+        action: "applyData",
+        timestamp: new Date().toISOString(),
+        user: currentUser,
+    }
+
+
+    // TODO: Move this to a function
+
+
+    updateActivityHistory(historyItem);
+
     figma.ui.postMessage({
-        type: 'done-apply-data',
+        type: 'done-apply-data'
     });
 }
 
@@ -194,6 +226,21 @@ function applyData(node, i: number, labels: Labels, dataToApply) {
     node.node.characters = cellData.toString();
 }
 
+function updateActivityHistory(historyItem: HistoryItem) {
+    parsedActivityHistory.push(historyItem);
+
+    activityHistory = JSON.stringify(parsedActivityHistory);
+    documentNode.setPluginData('activity-history', activityHistory);
+
+    announceActivityHistory(activityHistory)
+}
+
+function announceActivityHistory(activityHistory) {
+    figma.ui.postMessage({
+        type: 'announce-activity-history',
+        data: activityHistory,
+    });
+};
 
 // ---------------------------------
 // SELECTION CHANGE EVENT

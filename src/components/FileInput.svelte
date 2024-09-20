@@ -3,25 +3,10 @@
 	import { Button } from 'figma-plugin-ds-svelte';
 
 	export let validFileTypes = '.xlsx';
-	export let fileName = 'Last import';
-	export let lastUpdatedTime = 'No file selected';
+	export let fileName = '';
+	export let lastUpdatedTime = '';
 
 	let filePicker;
-
-	function handleFileInput(e) {
-		const files = e.target.files;
-		console.log(files);
-		fileName = files[0].name;
-		lastUpdatedTime =
-			'Last updated: ' +
-			new Date().toLocaleString([], {
-				day: 'numeric',
-				month: 'numeric',
-				year: 'numeric',
-				hour: '2-digit',
-				minute: '2-digit',
-			});
-	}
 </script>
 
 <div>
@@ -31,13 +16,25 @@
 		id="file-input"
 		name="file-input"
 		hidden
-		on:change={handleFileInput}
 		on:change
 		accept={validFileTypes} />
 
 	<Button on:click={filePicker.click()} variant="primary">Import File</Button>
 
-	<DataDisplay label={fileName}>{lastUpdatedTime}</DataDisplay>
+	<DataDisplay label={fileName || 'Last import'}>
+		{#if lastUpdatedTime}
+			{'Last updated: ' +
+				new Date(lastUpdatedTime).toLocaleString([], {
+					day: 'numeric',
+					month: 'numeric',
+					year: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit',
+				})}
+		{:else}
+			{'No file selected'}
+		{/if}
+	</DataDisplay>
 </div>
 
 <style>

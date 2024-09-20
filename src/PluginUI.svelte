@@ -1,21 +1,38 @@
 <script>
-	import DataSyncView from './components/Views/DataSyncView.svelte';
-	import ProfileView from './components/Views/ProfileView.svelte';
-
+	import PocketBase, { BaseAuthStore } from 'pocketbase';
 	import * as XLSX from 'xlsx';
 	import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
+	import { sendMsgToFigma } from './lib/helper-functions';
 
+	import DataSyncView from './components/Views/DataSyncView.svelte';
+	import ProfileView from './components/Views/ProfileView.svelte';
 	import MainSideNav from './components/MainSideNav/index.svelte';
 
-	// Variables to store workbook and sheet data
-	let workbook;
-	let sheetNames;
-	let worksheet;
-	let activeSheet;
-	let activeSheetName;
+	let isApplyingData = false;
+	let currentSaveVersion = '0.1';
 
-	import PocketBase, { BaseAuthStore } from 'pocketbase';
-	import { sendMsgToFigma } from './lib/helper-functions';
+	let currentUser = {
+		id: '',
+		name: '',
+	};
+
+	// Variables to store workbook and sheet data
+	let sheetNames;
+
+	let currentFile = {
+		fileName: '',
+		date: '',
+		data: {},
+		activeSheet: 0,
+		createdByUser: {
+			id: '',
+			name: '',
+		},
+		saveVersion: '',
+	};
+
+	let activityHistory = [];
+	let mostRecentHistoryItem;
 
 	/**
 	 * The default token store for browsers with auto fallback
@@ -99,45 +116,40 @@
 	let user;
 
 	window.addEventListener('message', (event) => {
-		if (event.data.pluginMessage.type == 'get-pb-auth-token') {
-			if (!event.data.pluginMessage.data) return;
+		switch (event.data.pluginMessage.type) {
+			case 'restore-sheet':
+				if (!event.data.pluginMessage.data) return console.log('no data to restore found');
 
-			pbAuthToken = JSON.parse(event.data.pluginMessage.data);
-
-			try {
-				// get an up-to-date auth store state by verifying and refreshing the loaded auth model (if any)
-				pb.authStore.isValid && pb.collection('users').authRefresh();
-			} catch (_) {
-				// clear the auth store on failed refresh
-				pb.authStore.clear();
-			}
-		}
-		if (event.data.pluginMessage.type == 'restore-sheet') {
-			if (event.data.pluginMessage.data) {
 				// Read the workbook from the file data
-
 				const data = decompressFromUTF16(event.data.pluginMessage.data);
-				workbook = JSON.parse(data);
-
-				console.log(workbook);
-
-				// Get sheet names and the first sheet
-				sheetNames = workbook.SheetNames;
-
-				const firstSheetName = workbook.SheetNames[0];
-
-				// Get the first worksheet and convert it to JSON
-				worksheet = workbook.Sheets[firstSheetName];
-
-				// Select the first sheet by default
-				selectSheet(0);
-			} else {
-				console.log('no data to restore found');
-			}
-		}
-		if (event.data.pluginMessage.type == 'done-apply-data') {
-			isApplyingData = false;
-			console.timeEnd('Elapsed time');
+				currentFile = JSON.parse(data);
+				console.log(currentFile);
+				sheetNames = currentFile.data.map((sheet) => sheet.name);
+				break;
+			case 'done-apply-data':
+				isApplyingData = false;
+				console.timeEnd('Elapsed time');
+				break;
+			case 'current-user':
+				currentUser = event.data.pluginMessage.data;
+				break;
+			case 'announce-activity-history':
+				if (!event.data.pluginMessage.data) return;
+				activityHistory = JSON.parse(event.data.pluginMessage.data);
+				mostRecentHistoryItem = activityHistory[activityHistory.length - 1];
+				break;
+			case 'get-pb-auth-token':
+				if (!event.data.pluginMessage.data) return;
+				pbAuthToken = JSON.parse(event.data.pluginMessage.data);
+				try {
+					// get an up-to-date auth store state by verifying and refreshing the loaded auth model (if any)
+					pb.authStore.isValid && pb.collection('users').authRefresh();
+				} catch (_) {
+					// clear the auth store on failed refresh
+					pb.authStore.clear();
+				}
+			default:
+				break;
 		}
 	});
 
@@ -148,81 +160,53 @@
 		if (!file) return;
 
 		const reader = new FileReader();
+		reader.readAsArrayBuffer(file); // Read the file as an ArrayBuffer
 		reader.onload = (e) => {
 			const data = new Uint8Array(e.target.result);
 
 			// Read the workbook from the file data
-			workbook = XLSX.read(data, { type: 'array' });
+			// For now use only default formatting in the sheet_to_json method
+			// In the future, consider parsing dates and currencies
+			const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+			console.log(workbook);
+			const sheets = workbook.SheetNames.map((sheetName, i) => {
+				const sheet = workbook.Sheets[sheetName];
+				return formatAndCleanSheet(sheet, sheetName, i);
+			});
 
-			saveSheet(workbook);
+			currentFile = {
+				fileName: file.name,
+				date: new Date().toISOString(),
+				data: sheets,
+				activeSheet: 0,
+				createdByUser: currentUser,
+				currentSaveVersion: currentSaveVersion,
+			};
 
-			// Get sheet names and the first sheet
-			sheetNames = workbook.SheetNames;
-			const firstSheetName = workbook.SheetNames[0];
+			sheetNames = currentFile.data.map((sheet) => sheet.name);
 
-			// Get the first worksheet and convert it to JSON
-			worksheet = workbook.Sheets[firstSheetName];
-
-			// Select the first sheet by default
-			selectSheet(0);
+			saveFile(currentFile);
 		};
-		reader.readAsArrayBuffer(file); // Read the file as an ArrayBuffer
 	}
 
-	async function saveSheet(data) {
+	async function saveFile(data) {
 		const dataToSave = compressToUTF16(JSON.stringify(data));
-
-		parent.postMessage(
-			{
-				pluginMessage: {
-					type: 'save-sheet',
-					data: dataToSave,
-				},
-			},
-			'*',
-		);
+		sendMsgToFigma('save-sheet', dataToSave);
 	}
-
-	// Function to select a sheet by index
-	function selectSheet(index) {
-		if (!workbook) return;
-
-		const sheet = workbook.Sheets[sheetNames[index]];
-		activeSheetName = sheetNames[index];
-
-		return (activeSheet = formatAndCleanSheet(sheet, index));
-	}
-
-	let isApplyingData = false;
 
 	function handleApplyData(e) {
 		isApplyingData = true;
-
-		const sheetNames = Object.keys(workbook.Sheets);
-
-		const allSheets = sheetNames.map((sheetName, i) => {
-			const sheet = workbook.Sheets[sheetName];
-			return formatAndCleanSheet(sheet, i);
-		});
-
-		parent.postMessage(
-			{
-				pluginMessage: {
-					type: 'apply-data',
-					data: allSheets,
-				},
-			},
-			'*',
-		);
+		sendMsgToFigma('apply-data', currentFile);
 		console.time('Elapsed time');
 	}
 
-	function formatAndCleanSheet(sheet, index) {
+	function formatAndCleanSheet(sheet, sheetName, index) {
 		let _sheet = XLSX.utils.sheet_to_json(sheet, {
 			header: 1,
 			defval: '',
 			blankrows: false,
 			skipHidden: true,
+			raw: false,
 		});
 
 		//Search for empty columns in header row
@@ -252,7 +236,7 @@
 		}
 
 		return {
-			name: sheetNames[index],
+			name: sheetName,
 			header: _sheet[0],
 			data: _sheet.slice(1),
 		};
@@ -292,8 +276,6 @@
 			};
 		}
 
-		console.log(mainSideNavItems);
-
 		mainSideNavItems = mainSideNavItems;
 	}
 </script>
@@ -314,23 +296,24 @@
 				<p>Planning view</p>
 			{:else if currentActiveItem.title === 'Data Sync'}
 				<DataSyncView
-					{activeSheet}
+					{currentFile}
 					{isApplyingData}
 					{sheetNames}
-					{activeSheetName}
+					{mostRecentHistoryItem}
 					on:file-input={(e) => handleFileInput(e)}
-					on:select-sheet={(e) => selectSheet(e.detail.index)}
-					on:apply-data={(e) => handleApplyData}></DataSyncView>
+					on:select-sheet={(e) => (currentFile.activeSheet = e.detail.index)}
+					}
+					on:apply-data={(e) => handleApplyData()}></DataSyncView>
 			{/if}
 		</main>
 	{/if}
 </div>
 
 <style>
-	:global(*) {
+	:global(menu, ul, li) {
 		margin: 0;
 		padding: 0;
-		color: var(--figma-color-text);
+		list-style: none;
 	}
 
 	.wrapper {
@@ -348,52 +331,9 @@
 		flex-direction: column;
 	}
 
-	header {
-		padding-block-start: 0.5rem;
-		margin-block-end: -0.5rem;
-	}
-
-	footer {
-		border-block-start: 1px solid var(--figma-color-border);
-		padding-block: 0.5rem;
-		display: flex;
-		padding-inline: 0.5rem;
-		justify-content: space-between;
-		position: sticky;
-		bottom: 0;
-		background-color: var(--figma-color-bg);
-	}
-
-	.table-wrapper {
-		padding-inline: 0.5rem;
-		overflow: scroll;
-	}
-
-	table {
-		border-collapse: collapse;
-		font-size: var(--font-size-xsmall);
-		margin-block-end: 0.5rem;
-	}
-
-	th,
-	td {
-		border: 1px solid var(--figma-color-border);
-		overflow: hidden;
-	}
-
-	thead {
-		/* position: sticky;
-		top: 0; */
-		background-color: var(--figma-color-bg);
-		border-block-start: 1px solid var(--figma-color-border);
-	}
-
-	th:first-of-type {
-		border-top-left-radius: var(--border-radius-large);
-	}
-
 	:global(.line-clamp-3) {
 		display: -webkit-box;
+		line-clamp: 3;
 		-webkit-line-clamp: 3;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
@@ -401,6 +341,7 @@
 
 	:global(.line-clamp-2) {
 		display: -webkit-box;
+		line-clamp: 2;
 		-webkit-line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
@@ -408,12 +349,13 @@
 
 	:global(.line-clamp) {
 		display: -webkit-box;
+		line-clamp: 1;
 		-webkit-line-clamp: 1;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
 
-	.pointer-none {
+	:global(.pointer-none) {
 		pointer-events: none;
 	}
 
