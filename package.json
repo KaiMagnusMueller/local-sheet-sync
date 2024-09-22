@@ -18,7 +18,7 @@
 		"figma-plugin-ds-svelte": "github:KaiMagnusMueller/figma-plugin-ds-svelte-improved",
 		"mdsvex": "^0.12.3",
 		"postcss": "^8.4.45",
-		"rollup": "^4.21.2",
+		"rollup": "^4.22.4",
 		"rollup-plugin-html-bundle": "*",
 		"rollup-plugin-livereload": "^2.0.5",
 		"rollup-plugin-postcss": "^4.0.2",
