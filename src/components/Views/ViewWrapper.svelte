@@ -7,11 +7,13 @@
 	<slot name="header"></slot>
 </header>
 
-<slot></slot>
+<div>
+	<slot></slot>
+</div>
 
 <style>
 	header {
-		padding: 1rem 0.5rem;
+		padding: 0.75rem 0.5rem;
 		display: flex;
 		justify-content: space-between;
 		background-color: var(--figma-color-bg);
@@ -21,5 +23,11 @@
 	h1 {
 		font-size: var(--font-size-xsmall);
 		font-weight: var(--font-weight-bold);
+		line-height: var(--font-line-height);
+	}
+
+	div {
+		/* margin: 0 0.5rem; */
+		flex-grow: 1;
 	}
 </style>

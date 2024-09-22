@@ -7,8 +7,10 @@
 	import DataSyncView from './components/Views/DataSyncView.svelte';
 	import ProfileView from './components/Views/ProfileView.svelte';
 	import MainSideNav from './components/MainSideNav/index.svelte';
+	import PlanningView from './components/Views/PlanningView.svelte';
 
 	let isApplyingData = false;
+	let isFetchingPlanningData = true;
 	let currentSaveVersion = '0.1';
 
 	let currentUser = {
@@ -33,6 +35,8 @@
 
 	let activityHistory = [];
 	let mostRecentHistoryItem;
+
+	let labelsWithDataInCurrentPage = [];
 
 	/**
 	 * The default token store for browsers with auto fallback
@@ -118,6 +122,8 @@
 	window.addEventListener('message', (event) => {
 		switch (event.data.pluginMessage.type) {
 			case 'restore-sheet':
+				// Use this event as a general startup event
+				// This always fires when the plugin is opened and ready
 				if (!event.data.pluginMessage.data) return console.log('no data to restore found');
 
 				// Read the workbook from the file data
@@ -125,6 +131,11 @@
 				currentFile = JSON.parse(data);
 				console.log(currentFile);
 				sheetNames = currentFile.data.map((sheet) => sheet.name);
+
+				setTimeout(() => {
+					sendMsgToFigma('get-ancestor-nodes-with-labels');
+				}, 1000);
+
 				break;
 			case 'done-apply-data':
 				isApplyingData = false;
@@ -148,6 +159,13 @@
 					// clear the auth store on failed refresh
 					pb.authStore.clear();
 				}
+				break;
+			case 'current-page-labels-with-data':
+				labelsWithDataInCurrentPage = JSON.parse(
+					decompressFromUTF16(event.data.pluginMessage.data),
+				);
+				isFetchingPlanningData = false;
+				break;
 			default:
 				break;
 		}
@@ -258,8 +276,6 @@
 	function handleAuthChange(e) {
 		const profileIndex = mainSideNavItems.findIndex((item) => item.title === 'Profile');
 
-		console.log(currentActiveItem);
-
 		if (user) {
 			mainSideNavItems[profileIndex] = {
 				...mainSideNavItems[profileIndex],
@@ -293,7 +309,7 @@
 			{#if currentActiveItem.title === 'Profile'}
 				<ProfileView {pb} bind:user on:authChange={(e) => handleAuthChange(e)} />
 			{:else if currentActiveItem.title === 'Planning'}
-				<p>Planning view</p>
+				<PlanningView {labelsWithDataInCurrentPage} {isFetchingPlanningData}></PlanningView>
 			{:else if currentActiveItem.title === 'Data Sync'}
 				<DataSyncView
 					{currentFile}
@@ -314,6 +330,11 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
+	}
+
+	:global(h1, h2, h3, h4, h5, h6) {
+		margin-block-start: 0;
+		margin-block-end: 0;
 	}
 
 	.wrapper {
@@ -363,31 +384,4 @@
 		display: flex;
 		gap: 0.5rem;
 	}
-
-	/* main {
-		display: flex;
-		flex-direction: column;
-		flex-grow: 1;
-		gap: 0.5rem;
-	} */
-
-	/* header {
-		padding-block-start: 0.5rem;
-		margin-block-end: -0.5rem;
-		backdrop-filter: blur(10px);
-		background-color: rgba(255, 255, 255, 0.716);
-		position: sticky;
-		top: 0;
-	} */
-
-	/* footer {
-		border-block-start: 1px solid var(--figma-color-border);
-		padding-block: 0.5rem;
-		display: flex;
-		padding-inline: 0.5rem;
-		justify-content: space-between;
-		position: sticky;
-		bottom: 0;
-		background-color: var(--figma-color-bg);
-	} */
 </style>

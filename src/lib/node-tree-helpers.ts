@@ -1,5 +1,94 @@
 import { getLabels, hasLabels, mergeLabels } from "./handle-labels";
 
+// ---------------------------------
+// SEARCH NODE HELPERS
+// ---------------------------------
+
+
+
+/**
+ * Retrieves a list of nodes to search from a given set of scene nodes.
+ * If the provided set is empty, it defaults to searching the current page's children.
+ *
+ * @param nodeSearchSet - A readonly array of SceneNode objects to search within.
+ * @returns An array of BaseNode objects that are eligible for searching.
+ */
+export function getNodesToSearch(nodeSearchSet: readonly SceneNode[]): SceneNode[] {
+    let nodesToSearch: SceneNode[] = [];
+    switch (nodeSearchSet.length) {
+        case 0:
+            // Search current page if no selection
+            figma.currentPage.children.forEach(node => {
+                //@ts-ignore
+                if (node.findAll !== undefined) {
+                    nodesToSearch.push(node);
+                }
+            });
+            break;
+        default:
+            nodeSearchSet.forEach(node => {
+                //@ts-ignore
+                if (node.findAll !== undefined) {
+                    nodesToSearch.push(node);
+                }
+            });
+            break;
+    }
+
+    return nodesToSearch;
+}
+
+export function getNodesToApplyData(nodesToSearch: SceneNode[]) {
+    let nodesToApplyData: SceneNode[] = [];
+
+    nodesToSearch.forEach(node => {
+        //@ts-ignore
+        const matchingNodes = node.findAll(node => {
+            const match = node.name.match(/({.*})/);
+            if (!match) return false;
+
+            try {
+                const jsonObject = JSON.parse(match[0]);
+                return !!jsonObject.column;
+            } catch (error) {
+                console.error('Invalid JSON:', error);
+                return false;
+            }
+        });
+        nodesToApplyData = nodesToApplyData.concat(matchingNodes);
+    });
+
+    return nodesToApplyData;
+
+}
+
+
+
+// ---------------------------------
+// TREE GROUP HELPERS
+// ---------------------------------
+export function getAncestorNodes(selection: SceneNode[]): SceneNode[] {
+    let ancestorNodes = [];
+    selection.forEach((elem) => {
+        ancestorNodes.push(getUltimateAncestorNode(elem));
+    });
+    return ancestorNodes;
+}
+
+/**
+ * Retrieves the ultimate ancestor node of the given current node.
+ * 
+ * @param {BaseNode} currentNode - The current node to find the ultimate ancestor for.
+ * @returns {BaseNode} The ultimate ancestor node of the current node.
+ */
+export function getUltimateAncestorNode(currentNode: SceneNode): SceneNode | BaseNode {
+    let ultimateAncestor = currentNode as SceneNode | BaseNode;
+    while (ultimateAncestor.parent.type !== 'PAGE') {
+        ultimateAncestor = ultimateAncestor.parent;
+    }
+    return ultimateAncestor;
+}
+
 export function getAncestorNodeArray(selection) {
     let ancestorNodeArray = [];
     selection.forEach((elem) => {
@@ -79,7 +168,7 @@ export function createDataTree(dataset): TreeNode[] {
     return dataTree;
 }
 
-function copyNode(node: BaseNode): SNode {
+export function copyNode(node: BaseNode): SNode {
     const { existingLabels } = getLabels(node.name);
 
     return {

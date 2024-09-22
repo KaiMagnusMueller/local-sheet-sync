@@ -112,7 +112,7 @@ export function getUltimateAncestorNode(currentNode: BaseNode) {
 }
 
 
-export function getAncestorNodes(selection) {
+export function getAncestorNodes(selection: SceneNode[]): SNode[] {
     let ancestorNodes = [];
     selection.forEach((elem) => {
         ancestorNodes.push(copyNode(getUltimateAncestorNode(elem)));
@@ -225,3 +225,27 @@ export function createDataTree(dataset) {
 // ];
 
 // documentNode.setPluginData('recentSearchList', JSON.stringify(dummyRecents));
+
+
+export async function loadFonts(nodesToApplyData: BaseNode[]) {
+    let fontsToLoad = [];
+    nodesToApplyData.forEach((node, i) => {
+        if (node.type !== "TEXT") {
+            return;
+        }
+
+        const fontsInUse = [...node.getRangeAllFontNames(0, node.characters.length)];
+        fontsInUse.forEach(fontName => {
+            fontsToLoad.some(font => font.family === fontName.family) || fontsToLoad.push(fontName);
+        })
+    });
+
+
+    try {
+        await Promise.all(fontsToLoad.map(figma.loadFontAsync));
+    } catch (error) {
+        console.error("Error loading fonts:", error);
+    }
+
+    return fontsToLoad;
+}

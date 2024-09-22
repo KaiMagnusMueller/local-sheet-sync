@@ -1,6 +1,7 @@
-import { postMessageToast } from './lib/figma-backend-utils';
+import { loadFonts, postMessageToast } from './lib/figma-backend-utils';
 import { getLabels, mergeLabels } from './lib/handle-labels';
-import { getAncestorNodeArray, groupNodes } from './lib/node-tree-helpers';
+import { copyNode, getAncestorNodes, getAncestorNodeArray, getNodesToApplyData, getNodesToSearch, groupNodes } from './lib/node-tree-helpers';
+import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
 
 console.clear();
 figma.showUI(__html__, { width: 680, height: 420, themeColors: true });
@@ -62,6 +63,50 @@ if (activityHistory) {
 let parsedActivityHistory = JSON.parse(activityHistory);
 
 
+async function getAncestorNodesContainingNodesWithLabels(selection: readonly SceneNode[]) {
+    let nodesToSearch = getNodesToSearch(selection);
+    let ancestorNodes = getAncestorNodes(nodesToSearch);
+
+    let ancestorNodesContainingNodesWithLabels = ancestorNodes.filter(node => {
+        if (!("findOne" in node)) { return false };
+        return node.findOne(n => !!n.name.match(/({.*})/));
+    });
+
+    let nodePlannerSummary: {
+        rootNode: SNode,
+        preview: Uint8Array,
+        groupedNodesWithLabels: TreeNode[][]
+    }[] = []
+
+    // Collect all exportAsync promises
+    let exportPromises = ancestorNodesContainingNodesWithLabels.map(async node => {
+        const nodesToApplyData = getNodesToApplyData([node]);
+        const selectedNodesLineage = nodesToApplyData.map(node => { return getAncestorNodeArray([node]) });
+        const groupedNodes = groupNodes(selectedNodesLineage);
+
+
+        let preview = await node.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: 300 } });
+        nodePlannerSummary.push({
+            rootNode: copyNode(node),
+            preview: preview,
+            groupedNodesWithLabels: groupedNodes
+        });
+    });
+
+
+
+    // Wait for all exportAsync promises to resolve
+    await Promise.all(exportPromises);
+
+    figma.ui.postMessage({
+        type: 'current-page-labels-with-data',
+        data: compressToUTF16(JSON.stringify(nodePlannerSummary)),
+    });
+}
+
+
+
+
 // ---------------------------------
 // ON PLUGIN MESSAGE
 // ---------------------------------
@@ -85,6 +130,10 @@ figma.ui.onmessage = (msg) => {
             console.log("Setting auth token:", msg.data);
             const authData = msg.data;
             figma.clientStorage.setAsync(authData.key, authData.value);
+
+            break;
+        case "get-ancestor-nodes-with-labels":
+            getAncestorNodesContainingNodesWithLabels(figma.currentPage.selection);
 
             break;
         default:
@@ -111,60 +160,19 @@ function applyLabelsToSelection(currentSelection: readonly SceneNode[], newLabel
 }
 
 
+
 async function applyDataToSelection(currentSelection: readonly SceneNode[], dataToApply) {
     let updatedNodes = 0
 
-    let nodesToSearch: BaseNode[] = [];
-    let nodesToApplyData: BaseNode[] = [];
-
-
-    switch (currentSelection.length) {
-        case 0:
-            // Search current page if no selection
-            figma.currentPage.children.forEach(node => {
-                //@ts-ignore
-                if (node.findAll !== undefined) {
-                    nodesToSearch.push(node);
-                } else if (node.name.match(/({.*})/)) {
-                    nodesToApplyData.push(node);
-                }
-            });
-            break;
-        default:
-            currentSelection.forEach(node => {
-                //@ts-ignore
-                if (node.findAll !== undefined) {
-                    nodesToSearch.push(node);
-                } else if (node.name.match(/({.*})/)) {
-                    nodesToApplyData.push(node);
-                }
-            });
-            break;
-    }
-
-    nodesToSearch.forEach(node => {
-        //@ts-ignore
-        const matchingNodes = node.findAll(node => {
-            const match = node.name.match(/({.*})/);
-            if (!match) return false;
-
-            try {
-                const jsonObject = JSON.parse(match[0]);
-                return !!jsonObject.column;
-            } catch (error) {
-                console.error('Invalid JSON:', error);
-                return false;
-            }
-        });
-        nodesToApplyData = nodesToApplyData.concat(matchingNodes);
-    });
-
-
+    const nodesToSearch = getNodesToSearch(currentSelection);
+    const nodesToApplyData = getNodesToApplyData(nodesToSearch);
 
     await loadFonts(nodesToApplyData);
 
     const selectedNodesLineage = nodesToApplyData.map(node => { return getAncestorNodeArray([node]) });
     const groupedNodes = groupNodes(selectedNodesLineage);
+
+    // console.log("NodesLineage:", selectedNodesLineage);
     console.log("Grouped nodes:", groupedNodes);
 
     groupedNodes.forEach(group => {
@@ -265,25 +273,6 @@ function handleSelectionChange() {
     });
 }
 
-async function loadFonts(nodesToApplyData: BaseNode[]) {
-    let fontsToLoad = [];
-    nodesToApplyData.forEach((node, i) => {
-        if (node.type !== "TEXT") {
-            return;
-        }
-
-        const fontsInUse = [...node.getRangeAllFontNames(0, node.characters.length)];
-        fontsInUse.forEach(fontName => {
-            fontsToLoad.some(font => font.family === fontName.family) || fontsToLoad.push(fontName);
-        })
-    });
 
 
-    try {
-        await Promise.all(fontsToLoad.map(figma.loadFontAsync));
-    } catch (error) {
-        console.error("Error loading fonts:", error);
-    }
 
-    return fontsToLoad;
-}
