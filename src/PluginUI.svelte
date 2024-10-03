@@ -166,6 +166,9 @@
 				);
 				isFetchingPlanningData = false;
 				break;
+			case 'selection-changed':
+				console.log('selection changed');
+				break;
 			default:
 				break;
 		}

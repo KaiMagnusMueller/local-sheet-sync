@@ -1,4 +1,4 @@
-import { loadFonts, postMessageToast } from './lib/figma-backend-utils';
+import { loadFonts, postMessageToast, selectNodesById } from './lib/figma-backend-utils';
 import { getLabels, mergeLabels } from './lib/handle-labels';
 import { copyNode, getAncestorNodes, getAncestorNodeArray, getNodesToApplyData, getNodesToSearch, groupNodes } from './lib/node-tree-helpers';
 import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
@@ -112,6 +112,11 @@ async function getAncestorNodesContainingNodesWithLabels(selection: readonly Sce
 // ---------------------------------
 figma.ui.onmessage = (msg) => {
     switch (msg.type) {
+        case "select-nodes":
+            // Selects all nodes with the given IDs. The IDs are passed as an array in msg.data.
+            selectNodesById(msg.data, true);
+
+            break;
         case 'save-sheet':
             const sheetData = msg.data;
             documentNode.setPluginData('sheet', sheetData);

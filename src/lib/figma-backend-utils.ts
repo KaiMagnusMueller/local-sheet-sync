@@ -26,6 +26,33 @@ export async function selectNodes(nodes: [BaseNode], zoomIntoView = true): Promi
 }
 
 /**
+ * Selects the specified nodes in the Figma editor.
+ * 
+ * @param nodeIds - An array of IDs of nodes to be selected.
+ * @param zoomIntoView - A boolean indicating whether to zoom into the selected nodes.
+ * @returns A promise that resolves when the nodes are selected.
+ */
+export async function selectNodesById(nodeIds: [string], zoomIntoView = true): Promise<void> {
+    let nodesToSelect = [];
+    for (let i = 0; i < nodeIds.length; i++) {
+        const node = await figma.getNodeByIdAsync(nodeIds[i]);
+
+        if (!node) {
+            console.warn("Node doesn't exist");
+            postMessageToast("Element doesn't exist");
+            return;
+        }
+        nodesToSelect.push(node);
+    }
+
+    figma.currentPage.selection = nodesToSelect;
+
+    if (zoomIntoView) {
+        figma.viewport.scrollAndZoomIntoView(figma.currentPage.selection);
+    }
+}
+
+/**
  * Checks if the given element is a valid recent search item.
  * 
  * @param element - The element to be checked.
