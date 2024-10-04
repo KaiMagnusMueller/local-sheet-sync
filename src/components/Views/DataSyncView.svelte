@@ -126,25 +126,6 @@
 	}
 
 	table {
-		border-collapse: collapse;
-		font-size: var(--font-size-xsmall);
 		margin-block-end: 0.5rem;
-	}
-
-	th,
-	td {
-		border: 1px solid var(--figma-color-border);
-		overflow: hidden;
-	}
-
-	thead {
-		/* position: sticky;
-		top: 0; */
-		background-color: var(--figma-color-bg);
-		border-block-start: 1px solid var(--figma-color-border);
-	}
-
-	th:first-of-type {
-		border-top-left-radius: var(--border-radius-large);
 	}
 </style>

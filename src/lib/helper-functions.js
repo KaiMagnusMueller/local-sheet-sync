@@ -71,6 +71,14 @@ export function sendMsgToFigma(type, data) {
     );
 }
 
+export function getUint8Array(obj) {
+    const array = Object.entries(obj).map(([key, value]) => {
+        return value;
+    });
+
+    return URL.createObjectURL(new Blob([new Uint8Array(array).buffer], { type: 'image/png' }));
+}
+
 // Component Icons
 import AppIcon from '../assets/icons/AppIcon.svg';
 import Component from '../assets/icons/NodeTypes/Component.svg';

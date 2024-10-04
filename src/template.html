@@ -16,7 +16,37 @@
 
         }
 
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            font-size: var(--font-size-xsmall);
+            font-weight: var(--font-weight-bold);
+            line-height: var(--font-line-height);
+        }
 
+        table {
+            border-collapse: collapse;
+            font-size: var(--font-size-xsmall);
+        }
+
+        th,
+        td {
+            border: 1px solid var(--figma-color-border);
+            overflow: hidden;
+        }
+
+        thead {
+            /* position: sticky;
+		top: 0; */
+            background-color: var(--figma-color-bg);
+            border-block-start: 1px solid var(--figma-color-border);
+        }
+
+        th:first-of-type {
+            border-top-left-radius: var(--border-radius-large);
+        }
 
         .markdown * {
             color: var(--figma-color-text);

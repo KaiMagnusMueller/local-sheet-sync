@@ -1,44 +1,69 @@
 <script>
-	import { Icon, IconSpinner, IconButton } from 'figma-plugin-ds-svelte';
+	import { Icon, IconSpinner, IconButton, IconBack, IconForward } from 'figma-plugin-ds-svelte';
 	import ViewWrapper from './ViewWrapper.svelte';
-	import { sendMsgToFigma } from '../../lib/helper-functions';
+	import { sendMsgToFigma, getUint8Array } from '../../lib/helper-functions';
 	import CenteredCircles3 from '../../assets/icons/centered-circles-3.svg';
+	import NodeDetailView from '../NodeDetailView.svelte';
+	import NodePreview from '../NodePreview.svelte';
 
 	export let labelsWithDataInCurrentPage = [];
 	export let isFetchingPlanningData;
 
-	function getUint8Array(obj) {
-		const array = Object.entries(obj).map(([key, value]) => {
-			return value;
-		});
+	function switchView(node = null, title = 'Planning view') {
+		console.log('switchView', node, title);
 
-		return URL.createObjectURL(new Blob([new Uint8Array(array).buffer], { type: 'image/png' }));
+		if (node === null) {
+			selectedNode = null;
+			viewTitle = 'Planning view';
+			showNavBack = false;
+		} else {
+			selectedNode = node;
+			viewTitle = title;
+			showNavBack = true;
+		}
 	}
+
+	let viewTitle = 'Planning view';
+	let selectedNode;
+	let showNavBack = false;
 </script>
 
-<ViewWrapper title="Planning view">
+<ViewWrapper title={viewTitle} on:navBack={() => switchView()} {showNavBack}>
 	{#if labelsWithDataInCurrentPage.length > 0}
-		<ul>
-			{#each labelsWithDataInCurrentPage as label}
-				<li>
-					<button>
-						<div class="image">
-							<img src={getUint8Array(label.preview)} alt="" />
-							<div class="hover-controls">
-								<IconButton
-									rounded
-									on:click={sendMsgToFigma('select-nodes', [label.rootNode.id])}
-									iconName={CenteredCircles3} />
+		{#if selectedNode}
+			<NodeDetailView node={selectedNode} />
+		{:else}
+			<ul>
+				{#each labelsWithDataInCurrentPage as label}
+					<li>
+						<button>
+							<div class="image">
+								<NodePreview image={label.preview} />
+
+								<div class="hover-controls">
+									<IconButton
+										rounded
+										on:click={sendMsgToFigma('select-nodes', [
+											label.rootNode.id,
+										])}
+										iconName={CenteredCircles3} />
+								</div>
 							</div>
-						</div>
-						<div class="details">
-							<h2>{label.rootNode.name}</h2>
-							<span>{label.rootNode.id}</span>
-						</div>
-					</button>
-				</li>
-			{/each}
-		</ul>
+							<div class="details">
+								<h2>{label.rootNode.name}</h2>
+								<span>{label.rootNode.id}</span>
+							</div>
+							<div class="list-item-controls">
+								<IconButton
+									on:click={() => switchView(label, label.rootNode.name)}
+									rounded
+									iconName={IconForward} />
+							</div>
+						</button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
 	{:else if isFetchingPlanningData}
 		<div class="loading-wrapper">
 			<Icon iconName={IconSpinner} spin />
@@ -65,6 +90,7 @@
 		width: -webkit-fill-available;
 		border-radius: var(--border-radius-large);
 		text-align: left;
+		align-items: stretch;
 	}
 
 	/* button:hover {
@@ -72,13 +98,7 @@
 	} */
 
 	.image {
-		border-radius: var(--border-radius-large);
-		aspect-ratio: 1.75/1;
-		height: 128px;
-		background-color: var(--figma-color-bg-secondary);
-		padding: 0.5rem;
 		position: relative;
-		/* border: 2px solid var(--figma-color-border); */
 	}
 
 	.hover-controls {
@@ -98,25 +118,19 @@
 		display: block;
 	}
 
-	img {
-		width: 100%;
-		height: 100%;
-		object-fit: contain;
-	}
-
 	.details {
 		margin: 0.5rem;
 		font-size: var(--font-size-xsmall);
 		font-weight: var(--font-weight-normal);
 		line-height: var(--font-line-height);
 		position: relative;
-		width: -webkit-fill-available;
+		flex-grow: 1;
 	}
 
-	h2 {
-		font-size: var(--font-size-xsmall);
-		font-weight: var(--font-weight-bold);
-		line-height: var(--font-line-height);
+	.list-item-controls {
+		display: flex;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.loading-wrapper {
