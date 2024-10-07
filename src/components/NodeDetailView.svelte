@@ -4,30 +4,45 @@
 	import NodePreview from './NodePreview.svelte';
 	import CenteredCircles3 from '../assets/icons/centered-circles-3.svg';
 
-	export let node;
+	export let nodes = [];
 
-	console.log('NodeDetailView', node);
+	console.log(nodes);
 </script>
 
 <div class="node-detail-view">
-	<div class="node-attributes">
-		<NodePreview image={node.preview} />
-		<h2>Attributes</h2>
+	{#if nodes.length <= 1}
+		<div class="node-attributes">
+			<div class="node-preview">
+				<NodePreview image={nodes[0].preview}>
+					<IconButton
+						slot="hoverControls"
+						rounded
+						on:click={sendMsgToFigma('select-nodes', [nodes[0].rootNode.id])}
+						iconName={CenteredCircles3} />
+				</NodePreview>
+				<h2>{nodes[0].rootNode.name}</h2>
+			</div>
+			<div class="attribute-list">
+				<h3>Attributes</h3>
+				<ul>
+					<li>Text</li>
+				</ul>
+			</div>
+		</div>
+	{:else}
+		<p>Multiple nodes selected</p>
+	{/if}
 
-		<ul>
-			<li>Text</li>
-		</ul>
-	</div>
-	{#if node.groupedNodesWithLabels.length > 0}
+	{#if nodes[0] && nodes[0].groupedNodesWithLabels.length > 0}
 		<div class="grouped-nodes">
 			<h2>Groups in this Element</h2>
-			{#each node.groupedNodesWithLabels as group}
-				{#each group as rootNode}
+			{#each nodes[0].groupedNodesWithLabels as group}
+				{#each group as node}
 					<header>
-						<h3>{rootNode.name}</h3>
+						<h3>{node.name}</h3>
 						<IconButton
 							rounded
-							on:click={sendMsgToFigma('select-nodes', [rootNode.id])}
+							on:click={sendMsgToFigma('select-nodes', [node.id])}
 							iconName={CenteredCircles3} />
 					</header>
 					<div class="node-group">
@@ -35,17 +50,17 @@
 							rounded
 							class="auto-height"
 							on:click={sendMsgToFigma('select-nodes', [
-								...rootNode.childNodes.map((node) => node.id),
+								...node.childNodes.map((node) => node.id),
 							])}
 							iconName={CenteredCircles3} />
 						<ul>
-							{#each rootNode.childNodes as node}
+							{#each node.childNodes as child}
 								<li>
-									<span>{node.name}</span>
+									<span>{child.name}</span>
 									<!-- <div class="hover-controls"> -->
 									<IconButton
 										rounded
-										on:click={sendMsgToFigma('select-nodes', [node.id])}
+										on:click={sendMsgToFigma('select-nodes', [child.id])}
 										iconName={CenteredCircles3} />
 									<!-- </div> -->
 								</li>
@@ -84,14 +99,38 @@
 		grid-template-columns: 1fr 2fr;
 		grid-template-rows: 1fr;
 		gap: 0.5rem;
-		padding: 0.5rem;
+		padding-inline: 0.5rem;
 		background-color: var(--figma-color-bg);
+		align-items: start;
+	}
+
+	.node-detail-view > div {
+		padding-block: 0.5rem;
 	}
 
 	.node-attributes {
 		display: flex;
 		flex-direction: column;
+		gap: 1rem;
+		position: sticky;
+		top: 0;
+	}
+
+	h2 {
+		font-size: var(--font-size-large);
+		font-weight: var(--font-weight-semibold);
+		padding-inline: 0.5rem;
+	}
+
+	.node-preview,
+	.attribute-list {
+		display: flex;
+		flex-direction: inherit;
 		gap: 0.5rem;
+	}
+
+	.attribute-list h3 {
+		padding-inline: 0.5rem;
 	}
 
 	.node-group {
@@ -119,6 +158,7 @@
 	li:hover,
 	header:hover {
 		background-color: var(--figma-color-bg-hover);
+		user-select: none;
 	}
 
 	.hover-controls {

@@ -22,13 +22,18 @@ export function getNodesToSearch(nodeSearchSet: readonly SceneNode[]): SceneNode
                 //@ts-ignore
                 if (node.findAll !== undefined) {
                     nodesToSearch.push(node);
+                } else if (hasLabels(node.name)) {
+                    nodesToSearch.push(node);
                 }
             });
             break;
         default:
+            // Search selection if available
             nodeSearchSet.forEach(node => {
                 //@ts-ignore
                 if (node.findAll !== undefined) {
+                    nodesToSearch.push(node);
+                } else if (hasLabels(node.name)) {
                     nodesToSearch.push(node);
                 }
             });
@@ -42,6 +47,13 @@ export function getNodesToApplyData(nodesToSearch: SceneNode[]) {
     let nodesToApplyData: SceneNode[] = [];
 
     nodesToSearch.forEach(node => {
+        //@ts-ignore
+        if (node.findAll === undefined && getLabels(node.name).existingLabels.column) {
+            nodesToApplyData.push(node);
+            return
+
+        }
+
         //@ts-ignore
         const matchingNodes = node.findAll(node => {
             const match = node.name.match(/({.*})/);
@@ -59,7 +71,6 @@ export function getNodesToApplyData(nodesToSearch: SceneNode[]) {
     });
 
     return nodesToApplyData;
-
 }
 
 
@@ -67,10 +78,10 @@ export function getNodesToApplyData(nodesToSearch: SceneNode[]) {
 // ---------------------------------
 // TREE GROUP HELPERS
 // ---------------------------------
-export function getAncestorNodes(selection: SceneNode[]): SceneNode[] {
+export function getAncestorNodesOfArray(selection: SceneNode[], limitToNodes: SceneNode[] = []): SceneNode[] {
     let ancestorNodes = [];
     selection.forEach((elem) => {
-        ancestorNodes.push(getUltimateAncestorNode(elem));
+        ancestorNodes.push(getAncestorNode(elem, limitToNodes));
     });
     return ancestorNodes;
 }
@@ -81,9 +92,10 @@ export function getAncestorNodes(selection: SceneNode[]): SceneNode[] {
  * @param {BaseNode} currentNode - The current node to find the ultimate ancestor for.
  * @returns {BaseNode} The ultimate ancestor node of the current node.
  */
-export function getUltimateAncestorNode(currentNode: SceneNode): SceneNode | BaseNode {
+export function getAncestorNode(currentNode: SceneNode, limitToNodes: SceneNode[] = []): SceneNode | BaseNode {
     let ultimateAncestor = currentNode as SceneNode | BaseNode;
-    while (ultimateAncestor.parent.type !== 'PAGE') {
+
+    while (ultimateAncestor.parent.type !== 'PAGE' && (limitToNodes.findIndex(n => ultimateAncestor.id === n.id) < 0)) {
         ultimateAncestor = ultimateAncestor.parent;
     }
     return ultimateAncestor;

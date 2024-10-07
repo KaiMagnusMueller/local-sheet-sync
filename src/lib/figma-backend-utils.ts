@@ -130,7 +130,7 @@ export function postMessageToast(text: string, duration: number = undefined): vo
  * @param {BaseNode} currentNode - The current node to find the ultimate ancestor for.
  * @returns {BaseNode} The ultimate ancestor node of the current node.
  */
-export function getUltimateAncestorNode(currentNode: BaseNode) {
+export function getAncestorNode(currentNode: BaseNode) {
     let ultimateAncestor = currentNode;
     while (ultimateAncestor.parent.type !== 'PAGE') {
         ultimateAncestor = ultimateAncestor.parent;
@@ -139,10 +139,10 @@ export function getUltimateAncestorNode(currentNode: BaseNode) {
 }
 
 
-export function getAncestorNodes(selection: SceneNode[]): SNode[] {
+export function getAncestorNodesOfArray(selection: SceneNode[]): SNode[] {
     let ancestorNodes = [];
     selection.forEach((elem) => {
-        ancestorNodes.push(copyNode(getUltimateAncestorNode(elem)));
+        ancestorNodes.push(copyNode(getAncestorNode(elem)));
     });
     return ancestorNodes;
 }

@@ -8,6 +8,7 @@
 	import ProfileView from './components/Views/ProfileView.svelte';
 	import MainSideNav from './components/MainSideNav/index.svelte';
 	import PlanningView from './components/Views/PlanningView.svelte';
+	import { selectedNodes } from './stores';
 
 	let isApplyingData = false;
 	let isFetchingPlanningData = true;
@@ -36,7 +37,7 @@
 	let activityHistory = [];
 	let mostRecentHistoryItem;
 
-	let labelsWithDataInCurrentPage = [];
+	let labelGroups = [];
 
 	/**
 	 * The default token store for browsers with auto fallback
@@ -160,14 +161,13 @@
 					pb.authStore.clear();
 				}
 				break;
-			case 'current-page-labels-with-data':
-				labelsWithDataInCurrentPage = JSON.parse(
-					decompressFromUTF16(event.data.pluginMessage.data),
-				);
-				isFetchingPlanningData = false;
-				break;
+			// case 'current-page-labels-with-data':
+			// 	labelGroups = JSON.parse(decompressFromUTF16(event.data.pluginMessage.data));
+			// 	isFetchingPlanningData = false;
+			// 	break;
 			case 'selection-changed':
 				console.log('selection changed');
+				$selectedNodes = event.data.pluginMessage.data;
 				break;
 			default:
 				break;
@@ -312,7 +312,7 @@
 			{#if currentActiveItem.title === 'Profile'}
 				<ProfileView {pb} bind:user on:authChange={(e) => handleAuthChange(e)} />
 			{:else if currentActiveItem.title === 'Planning'}
-				<PlanningView {labelsWithDataInCurrentPage} {isFetchingPlanningData}></PlanningView>
+				<PlanningView {labelGroups} {isFetchingPlanningData}></PlanningView>
 			{:else if currentActiveItem.title === 'Data Sync'}
 				<DataSyncView
 					{currentFile}

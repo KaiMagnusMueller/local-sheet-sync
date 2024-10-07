@@ -1,6 +1,6 @@
 import { loadFonts, postMessageToast, selectNodesById } from './lib/figma-backend-utils';
 import { getLabels, mergeLabels } from './lib/handle-labels';
-import { copyNode, getAncestorNodes, getAncestorNodeArray, getNodesToApplyData, getNodesToSearch, groupNodes } from './lib/node-tree-helpers';
+import { copyNode, getAncestorNodesOfArray, getAncestorNodeArray, getNodesToApplyData, getNodesToSearch, groupNodes, getAncestorNode } from './lib/node-tree-helpers';
 import { compressToUTF16, decompressFromUTF16 } from 'lz-string';
 
 console.clear();
@@ -65,7 +65,12 @@ let parsedActivityHistory = JSON.parse(activityHistory);
 
 async function getAncestorNodesContainingNodesWithLabels(selection: readonly SceneNode[]) {
     let nodesToSearch = getNodesToSearch(selection);
-    let ancestorNodes = getAncestorNodes(nodesToSearch);
+    let ancestorNodes = []
+
+    nodesToSearch.forEach(node => {
+        let ancestorNode = getAncestorNode(node, [...selection]);
+        ancestorNodes.push(ancestorNode);
+    });
 
     let ancestorNodesContainingNodesWithLabels = ancestorNodes.filter(node => {
         if (!("findOne" in node)) { return false };
@@ -82,6 +87,7 @@ async function getAncestorNodesContainingNodesWithLabels(selection: readonly Sce
     let exportPromises = ancestorNodesContainingNodesWithLabels.map(async node => {
         const nodesToApplyData = getNodesToApplyData([node]);
         const selectedNodesLineage = nodesToApplyData.map(node => { return getAncestorNodeArray([node]) });
+
         const groupedNodes = groupNodes(selectedNodesLineage);
 
 
@@ -170,6 +176,8 @@ async function applyDataToSelection(currentSelection: readonly SceneNode[], data
     let updatedNodes = 0
 
     const nodesToSearch = getNodesToSearch(currentSelection);
+    console.log("Nodes to search:", nodesToSearch);
+
     const nodesToApplyData = getNodesToApplyData(nodesToSearch);
 
     await loadFonts(nodesToApplyData);
@@ -262,15 +270,21 @@ figma.on('selectionchange', handleSelectionChange);
 
 function handleSelectionChange() {
     // @ts-ignore
-    let currentSelection: Array<SceneNode>;
+    let currentSelection: Array<SNode>;
 
     try {
         // @ts-ignore
-        currentSelection = figma.currentPage.selection;
+        currentSelection = figma.currentPage.selection.map(node => {
+            console.log("Node:", node);
+
+            return copyNode(node);
+        });
     } catch (error) {
         postMessageToast('Node is hidden and inacessible to the plugin');
         return;
     }
+
+    console.log("Current selection:", currentSelection);
 
     figma.ui.postMessage({
         type: 'selection-changed',
@@ -281,3 +295,96 @@ function handleSelectionChange() {
 
 
 
+
+
+
+// async function getAncestorNodesContainingNodesWithLabels(selection: readonly SceneNode[]) {
+//     let nodesToSearch = getNodesToSearch(selection);
+
+//     // if (selection.length > 0 && nodesToSearch.length === 0) {
+//     //     nodesToSearch = selection as SceneNode[];
+//     // }
+
+//     let ancestorNodes
+//     let ancestorNodesContainingNodesWithLabels
+//     let groupedNodes
+
+
+//     let nodePlannerSummary: {
+//         rootNode: SNode,
+//         preview: Uint8Array,
+//         groupedNodesWithLabels: TreeNode[][]
+//     }[] = []
+
+//     if (selection.length === 0) {
+//         ancestorNodes = getAncestorNodesOfArray(nodesToSearch);
+//         // Deduplicate the ancestorNodes array
+//         ancestorNodes = Array.from(new Set(ancestorNodes));
+
+//         // Returns an array with all ancestor nodes that contain nodes with labels. Ancestors without child nodes with labels are ignored.
+//         ancestorNodesContainingNodesWithLabels = ancestorNodes.filter(node => {
+//             if (!("findOne" in node)) { return false };
+//             return node.findOne(n => !!n.name.match(/({.*})/));
+//         });
+
+
+//         // Collect all exportAsync promises
+//         let exportPromises = ancestorNodesContainingNodesWithLabels.map(async node => {
+//             const nodesToApplyData = getNodesToApplyData([node]);
+//             const selectedNodesLineage = nodesToApplyData.map(node => { return getAncestorNodeArray([node]) });
+//             const groupedNodes = groupNodes(selectedNodesLineage);
+
+
+//             let preview = await node.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: 300 } });
+//             nodePlannerSummary.push({
+//                 rootNode: copyNode(node),
+//                 preview: preview,
+//                 groupedNodesWithLabels: groupedNodes
+//             });
+//         });
+
+
+
+//         // Wait for all exportAsync promises to resolve
+//         await Promise.all(exportPromises);
+
+
+//     } else {
+//         const nodesToApplyData = getNodesToApplyData(nodesToSearch);
+//         const selectedNodesLineage = nodesToApplyData.map(node => { return getAncestorNodeArray([node]) });
+//         groupedNodes = groupNodes(selectedNodesLineage);
+//         console.log("Grouped nodes:", groupedNodes);
+
+//         // Collect all exportAsync promises
+//         let exportPromises = groupedNodes.map(async group => {
+
+//             group.forEach(async node => {
+
+
+//                 let preview = await node.node.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: 300 } });
+
+//                 nodePlannerSummary.push({
+//                     rootNode: copyNode(node.node),
+//                     preview: preview,
+//                     groupedNodesWithLabels: group
+//                 });
+
+//             });
+//         })
+//         await Promise.all(exportPromises);
+
+//     }
+
+//     console.log("Ancestor nodes containing nodes with labels:", ancestorNodesContainingNodesWithLabels);
+//     console.log("Node planner summary:", nodePlannerSummary);
+
+
+
+
+
+
+//     figma.ui.postMessage({
+//         type: 'current-page-labels-with-data',
+//         data: compressToUTF16(JSON.stringify(nodePlannerSummary)),
+//     });
+// }

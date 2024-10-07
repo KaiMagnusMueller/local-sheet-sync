@@ -1,4 +1,4 @@
-import { copyNodesToSend, getUltimateAncestorNode } from "./figma-backend-utils";
+import { copyNodesToSend, getAncestorNode } from "./figma-backend-utils";
 
 export function searchNodes(query: Search) {
     console.log('got message, searching');
@@ -64,7 +64,7 @@ function isSearchable(node: SceneNode & ChildrenMixin) {
  * @returns {SceneNode[]} - The ultimate ancestor nodes.
  */
 function getUltimateAncestorNodes(selection: SceneNode[]) {
-    return selection.map(elem => getUltimateAncestorNode(elem));
+    return selection.map(elem => getAncestorNode(elem));
 }
 
 /**
