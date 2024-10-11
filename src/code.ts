@@ -62,41 +62,34 @@ if (activityHistory) {
 
 let parsedActivityHistory = JSON.parse(activityHistory);
 
+async function getAncestorNodesContainingNodesWithLabels(nodesToProcess: SceneNode[], mustHaveLabels) {
+    const ancestorNodes = nodesToProcess.map(node => getAncestorNode(node, [...nodesToProcess]));
 
-async function getAncestorNodesContainingNodesWithLabels(nodesToProcess: readonly SceneNode[]) {
-    let nodesToSearch = getNodesToSearch(nodesToProcess);
-    let ancestorNodes = []
+    const hasLabel = (node: SceneNode) => !!node.name.match(/({.*})/);
+    const isLeafNode = (node: SceneNode) => !("findOne" in node);
 
-    nodesToSearch.forEach(node => {
-        let ancestorNode = getAncestorNode(node, [...nodesToProcess]);
-        ancestorNodes.push(ancestorNode);
+    const ancestorNodesContainingNodesWithLabels = ancestorNodes.filter(node => {
+        if ((isLeafNode(node) && hasLabel(node)) || !mustHaveLabels) {
+            return true;
+        } else if (!isLeafNode(node)) {
+            // @ts-ignore
+            return node.findOne(n => hasLabel(n));
+        }
+        return false;
     });
 
-    let ancestorNodesContainingNodesWithLabels = ancestorNodes.filter(node => {
-        if (!("findOne" in node && !!node.name.match(/({.*})/))) {
-            return true
-        } else if (("findOne" in node)) {
-            return node.findOne(n => !!n.name.match(/({.*})/))
-        } else {
-            return false
-        };
-    });
-
-    let nodePlannerSummary: {
+    const nodePlannerSummary: {
         rootNode: SNode,
         preview: Uint8Array,
         groupedNodesWithLabels: TreeNode[][]
-    }[] = []
+    }[] = [];
 
-    // Collect all exportAsync promises
-    let exportPromises = ancestorNodesContainingNodesWithLabels.map(async node => {
+    const exportPromises = ancestorNodesContainingNodesWithLabels.map(async node => {
         const nodesToApplyData = getNodesToApplyData([node]);
-        const selectedNodesLineage = nodesToApplyData.map(node => { return getAncestorNodeArray([node]) });
-
+        const selectedNodesLineage = nodesToApplyData.map(node => getAncestorNodeArray([node]));
         const groupedNodes = groupNodes(selectedNodesLineage);
 
-
-        let preview = await node.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: 200 } });
+        const preview = await node.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: 200 } });
         nodePlannerSummary.push({
             rootNode: copyNode(node),
             preview: preview,
@@ -104,14 +97,10 @@ async function getAncestorNodesContainingNodesWithLabels(nodesToProcess: readonl
         });
     });
 
-
-
-    // Wait for all exportAsync promises to resolve
     await Promise.all(exportPromises);
 
-    return nodePlannerSummary
+    return nodePlannerSummary;
 }
-
 
 /**
  * Asynchronously retrieves ancestor node groups for the given nodes and sends a message to the Figma UI with the type "current-page-labels-with-data".
@@ -119,8 +108,8 @@ async function getAncestorNodesContainingNodesWithLabels(nodesToProcess: readonl
  * @param nodesToProcess - An array of readonly SceneNode objects to process.
  * @returns A promise that resolves when the ancestor node groups have been retrieved and the message has been posted.
  */
-async function getAncestorNodeGroupsAndSendEvent(nodesToProcess: readonly SceneNode[]) {
-    const nodePlannerSummary = await getAncestorNodesContainingNodesWithLabels(nodesToProcess);
+async function getAncestorNodeGroupsAndSendEvent(nodesToProcess: SceneNode[]) {
+    const nodePlannerSummary = await getAncestorNodesContainingNodesWithLabels(nodesToProcess, true);
 
     figma.ui.postMessage({
         type: 'current-page-labels-with-data',
@@ -293,7 +282,7 @@ figma.on('selectionchange', handleSelectionChange);
 
 async function handleSelectionChange() {
 
-    const nodePlannerSummary = await getAncestorNodesContainingNodesWithLabels(figma.currentPage.selection);
+    const nodePlannerSummary = await getAncestorNodesContainingNodesWithLabels(figma.currentPage.selection, false);
 
     figma.ui.postMessage({
         type: 'selection-changed',

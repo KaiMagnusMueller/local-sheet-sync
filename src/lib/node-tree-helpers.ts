@@ -31,10 +31,9 @@ export function getNodesToApplyData(nodesToSearch: SceneNode[]) {
 
     nodesToSearch.forEach(node => {
         //@ts-ignore
-        if (node.findAll === undefined && getLabels(node.name).existingLabels.column) {
+        if (node.findAll === undefined) {
             nodesToApplyData.push(node);
             return
-
         }
 
         //@ts-ignore
@@ -75,13 +74,13 @@ export function getAncestorNodesOfArray(selection: SceneNode[], limitToNodes: Sc
  * @param {BaseNode} currentNode - The current node to find the ultimate ancestor for.
  * @returns {BaseNode} The ultimate ancestor node of the current node.
  */
-export function getAncestorNode(currentNode: SceneNode, limitToNodes: SceneNode[] = []): SceneNode | BaseNode {
+export function getAncestorNode(currentNode: SceneNode, limitToNodes: SceneNode[] = []): SceneNode {
     let ultimateAncestor = currentNode as SceneNode | BaseNode;
 
     while (ultimateAncestor.parent.type !== 'PAGE' && (limitToNodes.findIndex(n => ultimateAncestor.id === n.id) < 0)) {
         ultimateAncestor = ultimateAncestor.parent;
     }
-    return ultimateAncestor;
+    return ultimateAncestor as SceneNode;
 }
 
 /**
