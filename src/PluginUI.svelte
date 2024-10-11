@@ -8,7 +8,6 @@
 	import ProfileView from './components/Views/ProfileView.svelte';
 	import MainSideNav from './components/MainSideNav/index.svelte';
 	import PlanningView from './components/Views/PlanningView.svelte';
-	import { selectedNodes } from './stores';
 
 	let isApplyingData = false;
 	let isFetchingPlanningData = true;
@@ -38,6 +37,7 @@
 	let mostRecentHistoryItem;
 
 	let labelGroups = [];
+	let selectedNodes = [];
 
 	/**
 	 * The default token store for browsers with auto fallback
@@ -133,9 +133,9 @@
 				console.log(currentFile);
 				sheetNames = currentFile.data.map((sheet) => sheet.name);
 
-				setTimeout(() => {
-					sendMsgToFigma('get-ancestor-nodes-with-labels');
-				}, 1000);
+				// Returned data is handled in the planning view component
+				sendMsgToFigma('get-current-selection-startup');
+				sendMsgToFigma('get-ancestor-nodes-with-labels');
 
 				break;
 			case 'done-apply-data':
@@ -161,13 +161,12 @@
 					pb.authStore.clear();
 				}
 				break;
-			// case 'current-page-labels-with-data':
-			// 	labelGroups = JSON.parse(decompressFromUTF16(event.data.pluginMessage.data));
-			// 	isFetchingPlanningData = false;
-			// 	break;
+			case 'current-page-labels-with-data':
+				labelGroups = JSON.parse(decompressFromUTF16(event.data.pluginMessage.data));
+				isFetchingPlanningData = false;
+				break;
 			case 'selection-changed':
-				console.log('selection changed');
-				$selectedNodes = event.data.pluginMessage.data;
+				selectedNodes = event.data.pluginMessage.data;
 				break;
 			default:
 				break;
@@ -312,7 +311,7 @@
 			{#if currentActiveItem.title === 'Profile'}
 				<ProfileView {pb} bind:user on:authChange={(e) => handleAuthChange(e)} />
 			{:else if currentActiveItem.title === 'Planning'}
-				<PlanningView {labelGroups} {isFetchingPlanningData}></PlanningView>
+				<PlanningView {labelGroups} {isFetchingPlanningData} {selectedNodes}></PlanningView>
 			{:else if currentActiveItem.title === 'Data Sync'}
 				<DataSyncView
 					{currentFile}

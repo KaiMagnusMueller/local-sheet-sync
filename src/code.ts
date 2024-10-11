@@ -63,18 +63,23 @@ if (activityHistory) {
 let parsedActivityHistory = JSON.parse(activityHistory);
 
 
-async function getAncestorNodesContainingNodesWithLabels(selection: readonly SceneNode[]) {
-    let nodesToSearch = getNodesToSearch(selection);
+async function getAncestorNodesContainingNodesWithLabels(nodesToProcess: readonly SceneNode[]) {
+    let nodesToSearch = getNodesToSearch(nodesToProcess);
     let ancestorNodes = []
 
     nodesToSearch.forEach(node => {
-        let ancestorNode = getAncestorNode(node, [...selection]);
+        let ancestorNode = getAncestorNode(node, [...nodesToProcess]);
         ancestorNodes.push(ancestorNode);
     });
 
     let ancestorNodesContainingNodesWithLabels = ancestorNodes.filter(node => {
-        if (!("findOne" in node)) { return false };
-        return node.findOne(n => !!n.name.match(/({.*})/));
+        if (!("findOne" in node && !!node.name.match(/({.*})/))) {
+            return true
+        } else if (("findOne" in node)) {
+            return node.findOne(n => !!n.name.match(/({.*})/))
+        } else {
+            return false
+        };
     });
 
     let nodePlannerSummary: {
@@ -91,7 +96,7 @@ async function getAncestorNodesContainingNodesWithLabels(selection: readonly Sce
         const groupedNodes = groupNodes(selectedNodesLineage);
 
 
-        let preview = await node.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: 300 } });
+        let preview = await node.exportAsync({ format: 'PNG', constraint: { type: 'WIDTH', value: 200 } });
         nodePlannerSummary.push({
             rootNode: copyNode(node),
             preview: preview,
@@ -104,12 +109,24 @@ async function getAncestorNodesContainingNodesWithLabels(selection: readonly Sce
     // Wait for all exportAsync promises to resolve
     await Promise.all(exportPromises);
 
+    return nodePlannerSummary
+}
+
+
+/**
+ * Asynchronously retrieves ancestor node groups for the given nodes and sends a message to the Figma UI with the type "current-page-labels-with-data".
+ *
+ * @param nodesToProcess - An array of readonly SceneNode objects to process.
+ * @returns A promise that resolves when the ancestor node groups have been retrieved and the message has been posted.
+ */
+async function getAncestorNodeGroupsAndSendEvent(nodesToProcess: readonly SceneNode[]) {
+    const nodePlannerSummary = await getAncestorNodesContainingNodesWithLabels(nodesToProcess);
+
     figma.ui.postMessage({
         type: 'current-page-labels-with-data',
         data: compressToUTF16(JSON.stringify(nodePlannerSummary)),
     });
 }
-
 
 
 
@@ -134,7 +151,11 @@ figma.ui.onmessage = (msg) => {
 
             break;
         case "apply-data":
-            applyDataToSelection(figma.currentPage.selection, msg.data);
+            if (figma.currentPage.selection.length === 0) {
+                applyDataToSelection(figma.currentPage.children, msg.data);
+            } else {
+                applyDataToSelection(figma.currentPage.selection, msg.data);
+            }
 
             break
         case "set-pb-auth-token":
@@ -144,9 +165,11 @@ figma.ui.onmessage = (msg) => {
 
             break;
         case "get-ancestor-nodes-with-labels":
-            getAncestorNodesContainingNodesWithLabels(figma.currentPage.selection);
-
+            getAncestorNodeGroupsAndSendEvent(figma.currentPage.children)
             break;
+        case "get-current-selection-startup":
+            handleSelectionChange()
+
         default:
             break;
     }
@@ -172,10 +195,10 @@ function applyLabelsToSelection(currentSelection: readonly SceneNode[], newLabel
 
 
 
-async function applyDataToSelection(currentSelection: readonly SceneNode[], dataToApply) {
+async function applyDataToSelection(nodesToProcess: readonly SceneNode[], dataToApply) {
     let updatedNodes = 0
 
-    const nodesToSearch = getNodesToSearch(currentSelection);
+    const nodesToSearch = getNodesToSearch(nodesToProcess);
     console.log("Nodes to search:", nodesToSearch);
 
     const nodesToApplyData = getNodesToApplyData(nodesToSearch);
@@ -268,27 +291,13 @@ function announceActivityHistory(activityHistory) {
 // ---------------------------------
 figma.on('selectionchange', handleSelectionChange);
 
-function handleSelectionChange() {
-    // @ts-ignore
-    let currentSelection: Array<SNode>;
+async function handleSelectionChange() {
 
-    try {
-        // @ts-ignore
-        currentSelection = figma.currentPage.selection.map(node => {
-            console.log("Node:", node);
-
-            return copyNode(node);
-        });
-    } catch (error) {
-        postMessageToast('Node is hidden and inacessible to the plugin');
-        return;
-    }
-
-    console.log("Current selection:", currentSelection);
+    const nodePlannerSummary = await getAncestorNodesContainingNodesWithLabels(figma.currentPage.selection);
 
     figma.ui.postMessage({
         type: 'selection-changed',
-        data: currentSelection,
+        data: nodePlannerSummary,
     });
 }
 

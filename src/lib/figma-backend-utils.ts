@@ -147,19 +147,6 @@ export function getAncestorNodesOfArray(selection: SceneNode[]): SNode[] {
     return ancestorNodes;
 }
 
-export function getAncestorNodeArray(selection) {
-    let ancestorNodeArray = [];
-    selection.forEach((elem) => {
-        ancestorNodeArray = ancestorNodeArray.concat(getLineageNodeArray(elem));
-    });
-    ancestorNodeArray.forEach((elem) => {
-        if (elem.type === 'PAGE') {
-            delete elem.parent;
-        }
-    });
-    return ancestorNodeArray;
-}
-
 /**
  * Retrieves an array of lineage nodes for a given current node.
  * 

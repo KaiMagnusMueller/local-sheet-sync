@@ -15,31 +15,14 @@ import { getLabels, hasLabels, mergeLabels } from "./handle-labels";
  */
 export function getNodesToSearch(nodeSearchSet: readonly SceneNode[]): SceneNode[] {
     let nodesToSearch: SceneNode[] = [];
-    switch (nodeSearchSet.length) {
-        case 0:
-            // Search current page if no selection
-            figma.currentPage.children.forEach(node => {
-                //@ts-ignore
-                if (node.findAll !== undefined) {
-                    nodesToSearch.push(node);
-                } else if (hasLabels(node.name)) {
-                    nodesToSearch.push(node);
-                }
-            });
-            break;
-        default:
-            // Search selection if available
-            nodeSearchSet.forEach(node => {
-                //@ts-ignore
-                if (node.findAll !== undefined) {
-                    nodesToSearch.push(node);
-                } else if (hasLabels(node.name)) {
-                    nodesToSearch.push(node);
-                }
-            });
-            break;
-    }
-
+    nodeSearchSet.forEach(node => {
+        //@ts-ignore
+        if (node.findAll !== undefined) {
+            nodesToSearch.push(node);
+        } else if (hasLabels(node.name)) {
+            nodesToSearch.push(node);
+        }
+    });
     return nodesToSearch;
 }
 
@@ -101,9 +84,15 @@ export function getAncestorNode(currentNode: SceneNode, limitToNodes: SceneNode[
     return ultimateAncestor;
 }
 
-export function getAncestorNodeArray(selection) {
+/**
+ * Retrieves an array of lineage nodes for a given current node.
+ * 
+ * @param {BaseNode} nodes - The current node for which to retrieve the lineage.
+ * @returns {SNode} An array of nodes up to the ultimate ancestor.
+ */
+export function getAncestorNodeArray(nodes: BaseNode[]): SNode[] {
     let ancestorNodeArray = [];
-    selection.forEach((elem) => {
+    nodes.forEach((elem) => {
         const lineageNodeArray = getLineageNodeArray(elem)
 
         // Merge labels of all nodes in the lineage
@@ -131,12 +120,11 @@ export function getAncestorNodeArray(selection) {
  * Retrieves an array of lineage nodes for a given current node.
  *
  * @param currentNode - The current node for which to retrieve the lineage.
- * @returns An array of nodes up to the ultimate ancestor.
+ * @returns An array of nodes up to the ultimate ancestor. e.g. [Frame, Group,…, Page]
  */
 function getLineageNodeArray(currentNode: BaseNode): SNode[] {
     let lineage = [copyNode(currentNode)];
     while (currentNode.type !== 'PAGE') {
-
         currentNode = currentNode.parent;
         lineage.push(copyNode(currentNode));
     }
