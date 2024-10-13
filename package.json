@@ -32,7 +32,7 @@
 		"lz-string": "^1.5.0",
 		"pocketbase": "^0.21.5",
 		"rollup-plugin-dotenv": "^0.5.1",
-		"sirv-cli": "^2.0.2",
+		"sirv-cli": "^3.0.0",
 		"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
 	}
 }
