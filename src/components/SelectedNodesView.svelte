@@ -1,9 +1,10 @@
 <script>
-	import { IconButton } from 'figma-plugin-ds-svelte';
+	import { IconButton, IconList, IconListTile } from 'figma-plugin-ds-svelte';
 	import { sendMsgToFigma } from '../lib/helper-functions';
 	import CenteredCircles3 from '../assets/icons/centered-circles-3.svg';
 	import NodePreview from './NodePreview.svelte';
 	import { getLabels } from '../lib/handle-labels';
+	import { transformGroupedNodes } from '../lib/node-tree-helpers';
 	import LabelTagGroup from './LabelTagGroup.svelte';
 
 	export let groups = [];
@@ -33,6 +34,13 @@
 			return new Set([...acc].filter((x) => properties.has(x)));
 		});
 	}
+
+	$: {
+		transformedNodes = transformGroupedNodes(groups[0].groupedNodesWithLabels);
+		console.log(transformedNodes);
+	}
+
+	let transformedNodes = [];
 </script>
 
 <div class="node-detail-view">
@@ -70,65 +78,140 @@
 		</div>
 	</div>
 
-	{#if groups[0] && groups[0].groupedNodesWithLabels.length > 0}
+	{#if transformedNodes}
 		<div class="grouped-nodes">
-			<h2>Groups in this Element</h2>
-			{#each groups as selectedNode}
-				{#each selectedNode.groupedNodesWithLabels as group}
-					{#each group as node}
-						{@const nodeLabels = getLabels(node.name)}
-						<div class="node-group-wrapper">
-							<header>
-								<div class="group-left">
-									<h3>{nodeLabels.nodeName}</h3>
-									<LabelTagGroup labels={nodeLabels.existingLabels}
-									></LabelTagGroup>
-								</div>
-								<IconButton
-									rounded
-									on:click={sendMsgToFigma('select-nodes', [node.id])}
-									iconName={CenteredCircles3} />
-							</header>
-							<div class="node-group">
-								<IconButton
-									rounded
-									class="auto-height"
-									on:click={sendMsgToFigma('select-nodes', [
-										...node.childNodes.map((node) => node.id),
-									])}
-									iconName={CenteredCircles3} />
-								<!-- Was zeigt das nochmal? -->
-								<!-- <p>{group.length} layer(s) with this label</p> -->
-								<ul>
-									{#each node.childNodes as child, index}
+			<div class="horizontal-group justify-content-between align-items-center">
+				<h2>Groups in this Element</h2>
+
+				<div class="nested-flex-group">
+					<IconButton rounded disabled iconName={IconList} />
+					<IconButton rounded disabled iconName={IconListTile} />
+				</div>
+			</div>
+
+			{#each transformedNodes as rootNode}
+				{@const nodeLabels = getLabels(rootNode.name)}
+				<div class="node-group-wrapper">
+					<header>
+						<div class="nested-flex-group">
+							<h3>{nodeLabels.nodeName}</h3>
+							<LabelTagGroup labels={nodeLabels.existingLabels}></LabelTagGroup>
+						</div>
+						<IconButton
+							rounded
+							on:click={sendMsgToFigma('select-nodes', [rootNode.id])}
+							iconName={CenteredCircles3} />
+					</header>
+					{#if rootNode.childNodes[0].length > 1}
+						<div class="node-group">
+							<IconButton
+								rounded
+								class="auto-height"
+								on:click={sendMsgToFigma('select-nodes', [
+									...rootNode.childNodes.map((node) => node.id),
+								])}
+								iconName={CenteredCircles3} />
+							<!-- Was zeigt das nochmal? -->
+							<!-- <p>{group.length} layer(s) with this label</p> -->
+							<ul>
+								{#each rootNode.childNodes as group, index}
+									{@const firstNode = group[0]}
+									{@const nodeLabels = getLabels(firstNode.name)}
+
+									<li>
+										{group.length} layers with <LabelTagGroup
+											labels={nodeLabels.existingLabels}></LabelTagGroup>
+									</li>
+
+									<!-- <header>
+										<div class="nested-flex-group">
+											<LabelTagGroup labels={nodeLabels.existingLabels}
+											></LabelTagGroup>
+										</div>
+									</header>
+									{#each group as child, index}
 										{@const nodeLabels = getLabels(child.name)}
 										<li>
-											<div class="group-left">
-												<!-- {#if index + 1 < node.childNodes.length}
+											<div class="nested-flex-group">
+												<span class="tag">{index}</span>
+												<span>{nodeLabels.nodeName}</span>
+
+												<IconButton
+													rounded
+													on:click={sendMsgToFigma('select-nodes', [
+														child.id,
+													])}
+													iconName={CenteredCircles3} />
+											</div>
+										</li>
+									{/each} -->
+								{/each}
+							</ul>
+						</div>
+					{/if}
+				</div>
+			{/each}
+
+			{#if false}
+				{#each groups as selectedNode}
+					{#each selectedNode.groupedNodesWithLabels as group}
+						{#each group as node}
+							{@const nodeLabels = getLabels(node.name)}
+							<div class="node-group-wrapper">
+								<header>
+									<div class="nested-flex-group">
+										<h3>{nodeLabels.nodeName}</h3>
+										<LabelTagGroup labels={nodeLabels.existingLabels}
+										></LabelTagGroup>
+									</div>
+									<IconButton
+										rounded
+										on:click={sendMsgToFigma('select-nodes', [node.id])}
+										iconName={CenteredCircles3} />
+								</header>
+								<div class="node-group">
+									<IconButton
+										rounded
+										class="auto-height"
+										on:click={sendMsgToFigma('select-nodes', [
+											...node.childNodes.map((node) => node.id),
+										])}
+										iconName={CenteredCircles3} />
+									<!-- Was zeigt das nochmal? -->
+									<!-- <p>{group.length} layer(s) with this label</p> -->
+									<ul>
+										{#each node.childNodes as child, index}
+											{@const nodeLabels = getLabels(child.name)}
+											<li>
+												<div class="nested-flex-group">
+													<!-- {#if index + 1 < node.childNodes.length}
 													<span>┣</span>
 												{:else}
 													<span>┗</span>
 												{/if} -->
-												<span>{nodeLabels.nodeName}</span>
-												<LabelTagGroup labels={nodeLabels.existingLabels}
-												></LabelTagGroup>
-											</div>
-											<!-- <div class="hover-controls"> -->
-											<IconButton
-												rounded
-												on:click={sendMsgToFigma('select-nodes', [
-													child.id,
-												])}
-												iconName={CenteredCircles3} />
-											<!-- </div> -->
-										</li>
-									{/each}
-								</ul>
+													<span class="tag">{index}</span>
+													<span>{nodeLabels.nodeName}</span>
+													<LabelTagGroup
+														labels={nodeLabels.existingLabels}
+													></LabelTagGroup>
+												</div>
+												<!-- <div class="hover-controls"> -->
+												<IconButton
+													rounded
+													on:click={sendMsgToFigma('select-nodes', [
+														child.id,
+													])}
+													iconName={CenteredCircles3} />
+												<!-- </div> -->
+											</li>
+										{/each}
+									</ul>
+								</div>
 							</div>
-						</div>
+						{/each}
 					{/each}
 				{/each}
-			{/each}
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -182,7 +265,7 @@
 		display: flex;
 		gap: 0.75rem;
 		flex-direction: column;
-		margin-block-start: 0.75rem;
+		/* margin-block-start: 0.75rem; */
 	}
 
 	/* .node-group-wrapper {
@@ -233,14 +316,19 @@
 		z-index: 1;
 	} */
 
-	.group-left {
+	.nested-flex-group {
 		display: inherit;
 		gap: inherit;
 		align-items: inherit;
-		justify-content: inherit;
+		justify-content: initial;
 	}
 
 	:global(.auto-height) {
 		height: auto !important;
+	}
+
+	.tag {
+		min-width: 1.375rem;
+		text-align: center;
 	}
 </style>

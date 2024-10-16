@@ -5,6 +5,7 @@
 {#each Object.keys(labels) as key}
 	{#if labels[key]}
 		<div
+			class="tag"
 			class:sheet={key === 'sheet'}
 			class:column={key === 'column'}
 			title={`${key} assigned to this element`}>
@@ -18,12 +19,6 @@
 	/* span:first-of-type {
 		text-transform: capitalize;
 	} */
-
-	div {
-		border-radius: var(--border-radius-large);
-		background: #0000000e;
-		padding: 0.125rem 0.25rem;
-	}
 
 	div.sheet {
 		background: hsla(124, 100%, 47%, 0.2);

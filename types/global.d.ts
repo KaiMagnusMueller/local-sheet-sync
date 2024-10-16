@@ -39,6 +39,11 @@ declare global {
         childNodes: TreeNode[];
     }
 
+    interface GroupRootNode extends SNode {
+        childNodes: TreeNode[][];
+        // Add preview here as well
+    }
+
     interface Labels {
         sheet?: string;
         column?: string;

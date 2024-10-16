@@ -328,17 +328,6 @@
 </div>
 
 <style>
-	:global(menu, ul, li) {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-	}
-
-	:global(h1, h2, h3, h4, h5, h6) {
-		margin-block-start: 0;
-		margin-block-end: 0;
-	}
-
 	.wrapper {
 		display: flex;
 		flex-direction: column;
@@ -352,38 +341,5 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
-	}
-
-	:global(.line-clamp-3) {
-		display: -webkit-box;
-		line-clamp: 3;
-		-webkit-line-clamp: 3;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
-
-	:global(.line-clamp-2) {
-		display: -webkit-box;
-		line-clamp: 2;
-		-webkit-line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
-
-	:global(.line-clamp) {
-		display: -webkit-box;
-		line-clamp: 1;
-		-webkit-line-clamp: 1;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
-
-	:global(.pointer-none) {
-		pointer-events: none;
-	}
-
-	:global(.horizontal-group) {
-		display: flex;
-		gap: 0.5rem;
 	}
 </style>

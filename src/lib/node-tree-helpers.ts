@@ -275,3 +275,17 @@ function groupByCommonAncestors(groups: SNode[][][]): TreeNode[][] {
 
     return result;
 }
+
+export function transformGroupedNodes(groups: TreeNode[][]) {
+    const nodeMap: { [key: string]: GroupRootNode } = {};
+
+    groups.forEach(group => {
+        group.forEach(containerNode => {
+            if (!nodeMap[containerNode.id]) {
+                nodeMap[containerNode.id] = { ...containerNode, childNodes: [] };
+            }
+            nodeMap[containerNode.id].childNodes.push(containerNode.childNodes);
+        });
+    });
+    return Object.values(nodeMap);
+}
