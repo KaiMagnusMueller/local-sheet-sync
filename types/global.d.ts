@@ -54,6 +54,13 @@ declare global {
             name: string;
         };
     }
+
+    interface NodeGroupSummary {
+        rootNode: SNode,
+        preview: Uint8Array,
+        groupedNodesWithLabels: TreeNode[][]
+    }
+
 }
 
 export { };

@@ -62,7 +62,7 @@ if (activityHistory) {
 
 let parsedActivityHistory = JSON.parse(activityHistory);
 
-async function getAncestorNodesContainingNodesWithLabels(nodesToProcess: SceneNode[], mustHaveLabels) {
+async function getAncestorNodesContainingNodesWithLabels(nodesToProcess: SceneNode[], mustHaveLabels): Promise<NodeGroupSummary[]> {
     const ancestorNodes = nodesToProcess.map(node => getAncestorNode(node, [...nodesToProcess]));
 
     const hasLabel = (node: SceneNode) => !!node.name.match(/({.*})/);
@@ -78,11 +78,7 @@ async function getAncestorNodesContainingNodesWithLabels(nodesToProcess: SceneNo
         return false;
     });
 
-    const nodePlannerSummary: {
-        rootNode: SNode,
-        preview: Uint8Array,
-        groupedNodesWithLabels: TreeNode[][]
-    }[] = [];
+    const nodePlannerSummary: NodeGroupSummary[] = [];
 
     const exportPromises = ancestorNodesContainingNodesWithLabels.map(async node => {
         const nodesToApplyData = getNodesToApplyData([node]);
@@ -154,7 +150,7 @@ figma.ui.onmessage = (msg) => {
 
             break;
         case "get-ancestor-nodes-with-labels":
-            getAncestorNodeGroupsAndSendEvent(figma.currentPage.children)
+            getAncestorNodeGroupsAndSendEvent([...figma.currentPage.children])
             break;
         case "get-current-selection-startup":
             handleSelectionChange()
@@ -282,7 +278,7 @@ figma.on('selectionchange', handleSelectionChange);
 
 async function handleSelectionChange() {
 
-    const nodePlannerSummary = await getAncestorNodesContainingNodesWithLabels(figma.currentPage.selection, false);
+    const nodePlannerSummary = await getAncestorNodesContainingNodesWithLabels([...figma.currentPage.selection], false);
 
     figma.ui.postMessage({
         type: 'selection-changed',

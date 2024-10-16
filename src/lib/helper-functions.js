@@ -1,5 +1,6 @@
 export function saveRecentSearches(recentSearches) {
     //TODO: is it possible to let a store update the plugindata on its own?
+    // @ts-ignore
     parent.postMessage(
         {
             pluginMessage: {
@@ -59,7 +60,7 @@ export function saveSettings(settings) {
  * @param {string} type - The type of the message. Will be used in the backend to determine how the message is handled.
  * @param {any} data - The data to be sent with the message.
  */
-export function sendMsgToFigma(type, data) {
+export function sendMsgToFigma(type, data = "") {
     parent.postMessage(
         {
             pluginMessage: {
@@ -76,6 +77,7 @@ export function getUint8Array(obj) {
         return value;
     });
 
+    // @ts-ignore
     return URL.createObjectURL(new Blob([new Uint8Array(array).buffer], { type: 'image/png' }));
 }
 

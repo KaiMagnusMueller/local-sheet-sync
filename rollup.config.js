@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { sveltePreprocess } from 'svelte-preprocess'
 import svelte from 'rollup-plugin-svelte';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
@@ -30,11 +31,9 @@ export default [
             svelte({
                 // enable run-time checks when not in production
                 dev: !production,
-                extensions: ['.svelte', '.svx'],
-                preprocess: mdsvex({
-                    smartypants: {},
-                }),
+                preprocess: sveltePreprocess(),
             }),
+            typescript(),
 
             // If you have external dependencies installed from
             // npm, you'll most likely need these plugins. In
@@ -46,6 +45,7 @@ export default [
                 dedupe: (importee) => importee === 'svelte' || importee.startsWith('svelte/'),
                 extensions: ['.svelte', '.mjs', '.js', '.json', '.node'],
             }),
+
             commonjs(),
             svg(),
             postcss({

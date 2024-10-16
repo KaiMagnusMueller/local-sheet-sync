@@ -3,6 +3,8 @@
 	import { sendMsgToFigma } from '../lib/helper-functions';
 	import CenteredCircles3 from '../assets/icons/centered-circles-3.svg';
 	import NodePreview from './NodePreview.svelte';
+	import { getLabels } from '../lib/handle-labels';
+	import LabelTagGroup from './LabelTagGroup.svelte';
 
 	export let groups = [];
 
@@ -74,35 +76,55 @@
 			{#each groups as selectedNode}
 				{#each selectedNode.groupedNodesWithLabels as group}
 					{#each group as node}
-						<header>
-							<h3>{node.name}</h3>
-							<IconButton
-								rounded
-								on:click={sendMsgToFigma('select-nodes', [node.id])}
-								iconName={CenteredCircles3} />
-						</header>
-						<div class="node-group">
-							<IconButton
-								rounded
-								class="auto-height"
-								on:click={sendMsgToFigma('select-nodes', [
-									...node.childNodes.map((node) => node.id),
-								])}
-								iconName={CenteredCircles3} />
-							<p>{group.length} layer(s) with this label</p>
-							<ul>
-								{#each node.childNodes as child}
-									<li>
-										<span>{child.name}</span>
-										<!-- <div class="hover-controls"> -->
-										<IconButton
-											rounded
-											on:click={sendMsgToFigma('select-nodes', [child.id])}
-											iconName={CenteredCircles3} />
-										<!-- </div> -->
-									</li>
-								{/each}
-							</ul>
+						{@const nodeLabels = getLabels(node.name)}
+						<div class="node-group-wrapper">
+							<header>
+								<div class="group-left">
+									<h3>{nodeLabels.nodeName}</h3>
+									<LabelTagGroup labels={nodeLabels.existingLabels}
+									></LabelTagGroup>
+								</div>
+								<IconButton
+									rounded
+									on:click={sendMsgToFigma('select-nodes', [node.id])}
+									iconName={CenteredCircles3} />
+							</header>
+							<div class="node-group">
+								<IconButton
+									rounded
+									class="auto-height"
+									on:click={sendMsgToFigma('select-nodes', [
+										...node.childNodes.map((node) => node.id),
+									])}
+									iconName={CenteredCircles3} />
+								<!-- Was zeigt das nochmal? -->
+								<!-- <p>{group.length} layer(s) with this label</p> -->
+								<ul>
+									{#each node.childNodes as child, index}
+										{@const nodeLabels = getLabels(child.name)}
+										<li>
+											<div class="group-left">
+												<!-- {#if index + 1 < node.childNodes.length}
+													<span>┣</span>
+												{:else}
+													<span>┗</span>
+												{/if} -->
+												<span>{nodeLabels.nodeName}</span>
+												<LabelTagGroup labels={nodeLabels.existingLabels}
+												></LabelTagGroup>
+											</div>
+											<!-- <div class="hover-controls"> -->
+											<IconButton
+												rounded
+												on:click={sendMsgToFigma('select-nodes', [
+													child.id,
+												])}
+												iconName={CenteredCircles3} />
+											<!-- </div> -->
+										</li>
+									{/each}
+								</ul>
+							</div>
 						</div>
 					{/each}
 				{/each}
@@ -156,11 +178,30 @@
 		padding-inline: 0.5rem;
 	}
 
+	.grouped-nodes {
+		display: flex;
+		gap: 0.75rem;
+		flex-direction: column;
+		margin-block-start: 0.75rem;
+	}
+
+	/* .node-group-wrapper {
+		border-radius: var(--border-radius-large);
+		border: 1px solid transparent;
+	} */
+
+	/* .node-group-wrapper:hover {
+		border-radius: var(--border-radius-large);
+		background-color: var(--figma-color-bg-hover);
+		padding: 0.5rem;
+		margin-block-end: 0.75rem;
+		border: 1px solid var(--figma-color-border);
+	} */
+
 	.node-group {
 		display: flex;
 		flex-direction: row;
 		gap: 0.5rem;
-		margin-bottom: 0.5rem;
 	}
 
 	ul {
@@ -176,12 +217,27 @@
 		justify-content: space-between;
 		align-items: center;
 		position: relative;
+		gap: 0.5rem;
+		background-color: var(--figma-color-bg);
 	}
 
 	li:hover,
 	header:hover {
 		background-color: var(--figma-color-bg-hover);
 		user-select: none;
+	}
+
+	/* header {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+	} */
+
+	.group-left {
+		display: inherit;
+		gap: inherit;
+		align-items: inherit;
+		justify-content: inherit;
 	}
 
 	:global(.auto-height) {
