@@ -13,7 +13,7 @@
 		"@rollup/plugin-image": "^3.0.3",
 		"@rollup/plugin-node-resolve": "^15.2.3",
 		"@rollup/plugin-terser": "^0.4.4",
-		"@rollup/plugin-typescript": "^11.1.6",
+		"@rollup/plugin-typescript": "^12.1.1",
 		"cssnano": "^7.0.6",
 		"figma-plugin-ds-svelte": "github:KaiMagnusMueller/figma-plugin-ds-svelte-improved",
 		"mdsvex": "^0.12.3",
