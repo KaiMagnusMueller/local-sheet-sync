@@ -6,10 +6,14 @@
 	import { getLabels } from '../lib/handle-labels';
 	import { transformGroupedNodes } from '../lib/node-tree-helpers';
 	import LabelTagGroup from './LabelTagGroup.svelte';
+	import { createEventDispatcher } from 'svelte';
+	const dispatch = createEventDispatcher();
 
 	export let groups = [];
 
-	console.log(groups);
+	// TODO: Make breadcrumb append element independent from selecting nodes and the breadcrumb data?
+	// console.log('appendView', rootNode), dispatch('appendView', [rootNode]);
+	// console.log(groups);
 
 	const assignableProperties = new Map([
 		['TEXT', new Set(['text', 'fills', 'strokes'])],
@@ -35,12 +39,20 @@
 		});
 	}
 
+	console.log(getCommonProperties(groups));
+
 	$: {
-		transformedNodes = transformGroupedNodes(groups[0].groupedNodesWithLabels);
-		console.log(transformedNodes);
+		transformedNodes = groups.map((selectedNode) =>
+			transformGroupedNodes(selectedNode.groupedNodesWithLabels),
+		);
+		// console.log(transformedNodes);
 	}
 
 	let transformedNodes = [];
+
+	function handleChooseDataField(e) {
+		console.log(e);
+	}
 </script>
 
 <div class="node-detail-view">
@@ -56,7 +68,7 @@
 						iconName={CenteredCircles3} />
 				{/if}
 			</NodePreview>
-			<h2>
+			<h2 class="line-clamp">
 				{#if groups.length > 1}
 					{groups.length} Layers Selected
 				{:else}
@@ -67,12 +79,18 @@
 		<div class="attribute-list">
 			<h3>Properties</h3>
 			<ul>
-				{#if getCommonProperties(groups)}
+				{#if getCommonProperties(groups).size > 0}
 					{#each getCommonProperties(groups) as property}
-						<li>{supportedProperties.get(property).label}</li>
+						<li>
+							<button
+								class="small flex-grow"
+								style="flex-grow: 1;"
+								on:click={(e) => handleChooseDataField(property)}
+								>{supportedProperties.get(property).label}</button>
+						</li>
 					{/each}
 				{:else}
-					<li>Layer has no assignable properties</li>
+					<li>Layer has no assignable properties or is not supported</li>
 				{/if}
 			</ul>
 		</div>
@@ -81,7 +99,8 @@
 	{#if transformedNodes}
 		<div class="grouped-nodes">
 			<div class="horizontal-group justify-content-between align-items-center">
-				<h2>Groups in this Element</h2>
+				<!-- <h2>Groups in {transformedNodes.length > 1 ? 'these Elements' : 'this Element'}</h2> -->
+				<h2>Groups</h2>
 
 				<div class="nested-flex-group">
 					<IconButton rounded disabled iconName={IconList} />
@@ -89,41 +108,59 @@
 				</div>
 			</div>
 
-			{#each transformedNodes as rootNode}
-				{@const nodeLabels = getLabels(rootNode.name)}
-				<div class="node-group-wrapper">
-					<header>
-						<div class="nested-flex-group">
-							<h3>{nodeLabels.nodeName}</h3>
-							<LabelTagGroup labels={nodeLabels.existingLabels}></LabelTagGroup>
-						</div>
-						<IconButton
-							rounded
-							on:click={sendMsgToFigma('select-nodes', [rootNode.id])}
-							iconName={CenteredCircles3} />
-					</header>
-					{#if rootNode.childNodes[0].length > 1}
-						<div class="node-group">
+			{#each transformedNodes as selectedNode}
+				{#each selectedNode as rootNode}
+					{@const nodeLabels = getLabels(rootNode.name)}
+					<div class="node-group-wrapper">
+						<header>
+							<div class="nested-flex-group">
+								<h3>{nodeLabels.nodeName}</h3>
+								<LabelTagGroup labels={nodeLabels.existingLabels}></LabelTagGroup>
+							</div>
 							<IconButton
 								rounded
-								class="auto-height"
-								on:click={sendMsgToFigma('select-nodes', [
-									...rootNode.childNodes.map((node) => node.id),
-								])}
+								on:click={sendMsgToFigma('select-nodes', [rootNode.id])}
 								iconName={CenteredCircles3} />
-							<!-- Was zeigt das nochmal? -->
-							<!-- <p>{group.length} layer(s) with this label</p> -->
-							<ul>
-								{#each rootNode.childNodes as group, index}
-									{@const firstNode = group[0]}
-									{@const nodeLabels = getLabels(firstNode.name)}
+						</header>
+						{#if rootNode.childNodes[0].length > 1}
+							<div class="node-group">
+								<IconButton
+									rounded
+									class="auto-height"
+									on:click={sendMsgToFigma('select-nodes', [
+										...rootNode.childNodes.flat().map((node) => node.id),
+									])}
+									iconName={CenteredCircles3} />
+								<!-- Was zeigt das nochmal? -->
+								<!-- <p>{group.length} layer(s) with this label</p> -->
+								<ul>
+									{#each rootNode.childNodes as group, index}
+										{@const firstNode = group[0]}
+										{@const nodeLabels = getLabels(firstNode.name)}
 
-									<li>
-										{group.length} layers with <LabelTagGroup
-											labels={nodeLabels.existingLabels}></LabelTagGroup>
-									</li>
+										<li>
+											<!-- <div class="nested-flex-group gap-025">
+												{group.length} layers with data <LabelTagGroup
+													labels={nodeLabels.existingLabels}
+												></LabelTagGroup> bound to
+												<span class="tag white">Text content</span>
+											</div> -->
+											<div class="nested-flex-group gap-025">
+												{group.length} layers with
+												<span class="tag gray">Text content</span>
+												as <LabelTagGroup labels={nodeLabels.existingLabels}
+												></LabelTagGroup>
+											</div>
+											<IconButton
+												rounded
+												on:click={sendMsgToFigma('select-nodes', [
+													...group.flat().map((node) => node.id),
+												])}
+												iconName={CenteredCircles3} />
+											<!-- <div class="nested-flex-group"></div> -->
+										</li>
 
-									<!-- <header>
+										<!-- <header>
 										<div class="nested-flex-group">
 											<LabelTagGroup labels={nodeLabels.existingLabels}
 											></LabelTagGroup>
@@ -145,11 +182,12 @@
 											</div>
 										</li>
 									{/each} -->
-								{/each}
-							</ul>
-						</div>
-					{/if}
-				</div>
+									{/each}
+								</ul>
+							</div>
+						{/if}
+					</div>
+				{/each}
 			{/each}
 
 			{#if false}
@@ -218,13 +256,13 @@
 
 <style>
 	.node-preview {
-		width: 14rem;
+		width: 10rem;
 		/* padding: 0.5rem; */
 	}
 
 	.node-detail-view {
 		display: grid;
-		grid-template-columns: 1fr 2fr;
+		grid-template-columns: max-content 1fr;
 		grid-template-rows: 1fr;
 		gap: 0.5rem;
 		padding-inline: 0.5rem;
@@ -295,33 +333,27 @@
 	header {
 		border-radius: var(--border-radius-large);
 		padding-block: 0.125rem;
-		padding-inline: 0.5rem 0.125rem;
+		padding-inline: 0.125rem;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		position: relative;
 		gap: 0.5rem;
 		background-color: var(--figma-color-bg);
+		flex-wrap: wrap;
 	}
 
-	li:hover,
+	/* li:hover,
 	header:hover {
 		background-color: var(--figma-color-bg-hover);
 		user-select: none;
-	}
+	} */
 
 	/* header {
 		position: sticky;
 		top: 0;
 		z-index: 1;
 	} */
-
-	.nested-flex-group {
-		display: inherit;
-		gap: inherit;
-		align-items: inherit;
-		justify-content: initial;
-	}
 
 	:global(.auto-height) {
 		height: auto !important;

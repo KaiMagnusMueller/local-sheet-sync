@@ -6,8 +6,8 @@
 	{#if labels[key]}
 		<div
 			class="tag"
-			class:sheet={key === 'sheet'}
-			class:column={key === 'column'}
+			class:green={key === 'sheet'}
+			class:blue={key === 'column'}
 			title={`${key} assigned to this element`}>
 			<!-- <span>{key}:</span> -->
 			<span>{labels[key]}</span>
@@ -19,12 +19,4 @@
 	/* span:first-of-type {
 		text-transform: capitalize;
 	} */
-
-	div.sheet {
-		background: hsla(124, 100%, 47%, 0.2);
-	}
-
-	div.column {
-		background: hsla(179, 100%, 47%, 0.2);
-	}
 </style>

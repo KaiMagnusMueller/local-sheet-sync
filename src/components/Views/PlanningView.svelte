@@ -5,6 +5,7 @@
 	import CenteredCircles3 from '../../assets/icons/centered-circles-3.svg';
 	import NodePreview from '../NodePreview.svelte';
 	import SelectedNodesView from '../SelectedNodesView.svelte';
+	import { getLabels } from '../../lib/handle-labels';
 
 	export let labelGroups = [];
 	export let isFetchingPlanningData;
@@ -16,7 +17,7 @@
 	function appendView(nodes) {
 		// console.log('appendView', nodes);
 		if (nodes.length === 1) {
-			navBreadcrumbs = [...navBreadcrumbs, nodes[0].rootNode.name];
+			navBreadcrumbs = [...navBreadcrumbs, getLabels(nodes[0].rootNode.name).nodeName];
 			viewBreadcrumbData = [...viewBreadcrumbData, [...nodes]];
 		} else if (nodes.length > 1) {
 			navBreadcrumbs = [...navBreadcrumbs, `${nodes.length} Layers Selected`];
@@ -44,7 +45,9 @@
 
 <ViewWrapper breadcrumbs={navBreadcrumbs} on:navToIndex={(e) => removeView(e.detail)}>
 	{#if (selectedNodes.length > 0 || labelGroups.length > 0) && navBreadcrumbs.at(-1) !== 'Planning view'}
-		<SelectedNodesView groups={viewBreadcrumbData.at(-1)} />
+		<SelectedNodesView
+			groups={viewBreadcrumbData.at(-1)}
+			on:appendView={(e) => appendView(e.detail)} />
 	{:else if labelGroups.length > 0 && navBreadcrumbs.at(-1) === 'Planning view'}
 		<ul>
 			{#each labelGroups as group}
